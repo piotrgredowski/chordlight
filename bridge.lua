@@ -5,13 +5,14 @@
 -- `pcall(dofile, ...)` bridge block in their Hyprland configuration. It does
 -- not open /dev/input, evdev, sockets, subprocesses, or network connections.
 -- Hyprland calls the callback below with a numeric key code and press/release
--- state. The bridge keeps only an in-memory modifier mask and looks up that
--- numeric tuple in Omakeez's generated, local allowlist.
+-- state. The bridge keeps an in-memory modifier mask and stores only matched
+-- guide IDs until their physical keys are released.
 --
 -- The only events sent back to Quickshell are:
 --   * guide lifecycle names (for example, SUPER down/up),
 --   * a modifier mask made from SUPER/SHIFT/CTRL/ALT, and
---   * an opaque SHA-256 binding ID when a configured binding matches.
+--   * opaque SHA-256 binding IDs for configured matches, including the
+--     down/up lifecycle of a guide-eligible ID while its key is held.
 -- It never sends typed characters, raw key sequences, dispatcher arguments,
 -- window titles, application names, passwords, or unmatched key codes. It
 -- does not write any data. A missing or malformed generated catalog disables
@@ -48,7 +49,8 @@ end
 local function load_catalog()
   local loaded, catalog = pcall(dofile, state_home .. "/omarchy/omakeez/bridge-catalog.lua")
   if not loaded or type(catalog) ~= "table" or catalog.schemaVersion ~= 1
-    or type(catalog.matches) ~= "table" then return nil, nil end
+    or type(catalog.matches) ~= "table"
+    or type(catalog.guideMatches) ~= "table" then return nil, nil end
 
   local modifier_codes = catalog.modifierCodes
   if type(modifier_codes) ~= "table" then return nil, nil end
@@ -72,6 +74,7 @@ if type(existing) == "table" then
   existing.catalog = catalog
   existing.modifiers = modifiers or empty_modifiers()
   existing.held = { SUPER = {}, SHIFT = {}, CTRL = {}, ALT = {} }
+  existing.hintHeld = {}
   existing.submap = ""
   existing.guideRoot = nil
   return
@@ -83,13 +86,15 @@ end
 local initial_catalog, initial_modifiers = load_catalog()
 if not initial_catalog then return end
 
--- All state below is process-local and disappears when Hyprland exits. There
--- is intentionally no history, counter, timestamp, or raw input buffer.
+-- All state below is process-local and disappears when Hyprland exits. The
+-- hint map holds only allowlisted IDs for keys that are still physically down;
+-- there is no usage history, counter, timestamp, or raw key sequence buffer.
 local bridge = {
   enabled = true,
   catalog = initial_catalog,
   modifiers = initial_modifiers,
   held = { SUPER = {}, SHIFT = {}, CTRL = {}, ALT = {} },
+  hintHeld = {},
   submap = "",
   guideRoot = nil,
   emitting = false,
@@ -165,6 +170,7 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
       if state == 1 then
         if bridge.held[name][code] then return end
         bridge.held[name][code] = true
+        bridge.hintHeld = {}
         if was_empty then
           bridge.guideRoot = name
           emit("omakeez:v1:guide:down:" .. name)
@@ -172,6 +178,7 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
       else
         if not bridge.held[name][code] then return end
         bridge.held[name][code] = nil
+        bridge.hintHeld = {}
         if name == bridge.guideRoot and was_held and not is_held(name) then
           bridge.guideRoot = nil
           emit("omakeez:v1:guide:up")
@@ -192,6 +199,24 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
   local key = modifier_mask() .. "|" .. tostring(code) .. "|" .. phase .. "|" .. bridge.submap
   local id = bridge.catalog.matches[key]
   if valid_id(id) then emit("omakeez:v1:match:" .. id .. ":" .. phase) end
+
+  -- Hint lifecycle events are limited to registered, guide-eligible chords.
+  -- Keep only the matched opaque ID until this physical key is released; an
+  -- unmatched key is never retained or sent to Quickshell.
+  if state == 1 then
+    local guide_key = modifier_mask() .. "|" .. tostring(code) .. "|" .. bridge.submap
+    local guide_id = bridge.catalog.guideMatches[guide_key]
+    if valid_id(guide_id) and not bridge.hintHeld[code] then
+      bridge.hintHeld[code] = guide_id
+      emit("omakeez:v1:hint:" .. guide_id .. ":down")
+    end
+  else
+    local held_id = bridge.hintHeld[code]
+    if held_id then
+      bridge.hintHeld[code] = nil
+      emit("omakeez:v1:hint:" .. held_id .. ":up")
+    end
+  end
 end)
 
 -- Submap changes are configuration context, not user activity history. Keep
@@ -200,5 +225,13 @@ end)
 hl.on("keybinds.submap", function(event)
   if not bridge.enabled then return end
   if type(event) == "table" then event = event.name or event.submap end
-  if type(event) == "string" then bridge.submap = event end
+  if type(event) == "string" then
+    if event ~= bridge.submap then
+      for _, id in pairs(bridge.hintHeld) do
+        if valid_id(id) then emit("omakeez:v1:hint:" .. id .. ":up") end
+      end
+      bridge.hintHeld = {}
+      bridge.submap = event
+    end
+  end
 end)

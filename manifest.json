@@ -1,24 +1,23 @@
 {
   "schemaVersion": 1,
   "id": "io.github.cyprusad.omakeez",
-  "name": "Omakeez",
+  "name": "Chordlight",
   "version": "0.1.2",
   "author": "cyprusad",
   "license": "MIT",
-  "description": "A local-first visual guide for Omarchy keyboard shortcuts.",
+  "description": "A little light for every shortcut. A local-first Omarchy keyboard shortcut guide.",
   "kinds": ["bar-widget", "service"],
   "entryPoints": {
     "barWidget": "BarWidget.qml",
     "service": "Service.qml"
   },
   "barWidget": {
-    "displayName": "Omakeez",
+    "displayName": "Chordlight",
     "category": "Learning",
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
       "guideDelayMs": 0,
-      "guideTopOffset": 0,
       "showInFullscreen": false,
       "guideSuperEnabled": true,
       "guideShiftEnabled": true,
@@ -29,12 +28,7 @@
       {
         "key": "guideDelayMs",
         "type": "integer",
-        "label": "Super Guide delay (ms)"
-      },
-      {
-        "key": "guideTopOffset",
-        "type": "integer",
-        "label": "Guide top offset (px)"
+        "label": "Guide delay (ms)"
       },
       {
         "key": "showInFullscreen",

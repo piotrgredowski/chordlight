@@ -354,6 +354,15 @@ def build(args):
         if item["trackable"] and item["xkbCodes"]:
             for code in item["xkbCodes"]:
                 lua.append(f"    [{lua_string('|'.join(['_'.join(item['modifiers']), str(code), item['phase'], item['submap']]))}] = {lua_string(item['id'])},")
+    lua.append("  },\n  guideMatches = {")
+    guide_matches = {}
+    for item in entries:
+        if item["trackable"] and item["guideEligible"] and item["xkbCodes"]:
+            for code in item["xkbCodes"]:
+                key = "|".join(["_".join(item["modifiers"]), str(code), item["submap"]])
+                guide_matches.setdefault(key, item["id"])
+    for key, identity in guide_matches.items():
+        lua.append(f"    [{lua_string(key)}] = {lua_string(identity)},")
     lua.append("  }\n}\n")
     catalog_path, lua_path = state / "catalog.json", state / "bridge-catalog.lua"
     catalog_text = json.dumps(catalog, ensure_ascii=False, indent=2) + "\n"

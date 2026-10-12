@@ -11,7 +11,7 @@ done
 jq -e '
   .schemaVersion == 1 and
   .id == "io.github.cyprusad.omakeez" and
-  .name == "Omakeez" and
+  .name == "Chordlight" and
   .version == "0.1.2" and
   .author == "cyprusad" and
   .license == "MIT" and
@@ -51,7 +51,7 @@ if rg -n -i '(^|[^[:alnum:]_])(curl|wget|socat|nc|netcat|pkexec|sudo|doas|eval)(
   echo "forbidden runtime API or network client found" >&2
   exit 1
 fi
-if rg -n -i 'https?://' "$root/Panel.qml" | grep -Fv 'https://github.com/cyprusad/omakeez/blob/main/bridge.lua'; then
+if rg -n -i 'https?://' "$root/Panel.qml" | grep -Fv 'https://github.com/zaremb/chordlight/blob/main/bridge.lua'; then
   echo "unexpected external runtime URL found" >&2
   exit 1
 fi

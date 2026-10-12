@@ -18,9 +18,9 @@ Item {
   property bool guideVisible: false
   property string activeModifiers: ""
   property string activeGuideRoot: ""
-  property string highlightedBindingId: ""
+  property var activeHintIds: []
+  property string lingeringHintId: ""
   property int guideDelayMs: 0
-  property int guideTopOffset: 0
   property bool showInFullscreen: false
   property bool guideSuperEnabled: true
   property bool guideShiftEnabled: true
@@ -107,6 +107,7 @@ Item {
     lastProtocolError = ""
     if (parsed.type === "guide") {
       if (parsed.phase === "down") {
+        root.cancelHintLinger()
         if (!root.guideRootEnabled(parsed.root)) {
           root.clearGuide()
           return true
@@ -114,17 +115,23 @@ Item {
         pendingGuideReceivedMs = Date.now()
         activeGuideRoot = parsed.root
         activeModifiers = parsed.root
-        highlightedBindingId = ""
+        activeHintIds = []
         guideVisible = false
         guideAwaitingLockCheck = true
         root.requestLockStatus(true)
       } else {
-        root.clearGuide()
+        root.clearGuide(true)
       }
       return true
     }
     if (parsed.type === "mods") {
-      if (guideVisible || guideAwaitingLockCheck) activeModifiers = parsed.modifiers
+      if (guideVisible || guideAwaitingLockCheck) {
+        if (activeModifiers !== parsed.modifiers) {
+          activeHintIds = []
+          root.cancelHintLinger()
+        }
+        activeModifiers = parsed.modifiers
+      }
       return true
     }
     if (parsed.type === "match") {
@@ -132,10 +139,48 @@ Item {
         lastProtocolError = "unknown-binding-id"
         return false
       }
-      highlightedBindingId = parsed.id
+      return true
+    }
+    if (parsed.type === "hint") {
+      if (!parsed.known) {
+        lastProtocolError = "unknown-binding-id"
+        return false
+      }
+      // A fast chord can arrive while lock/polkit state is still being
+      // checked. Keep only its opaque ID pending; clearGuide() discards it if
+      // the fail-closed eligibility check rejects the guide.
+      if (!Model.mayTrackHint(guideVisible, guideAwaitingLockCheck, activeGuideRoot)) return true
+      var hintState = Model.updatedHintState(activeHintIds, lingeringHintId, parsed.id, parsed.phase)
+      if (hintState.lingerAction === "clear") root.cancelHintLinger()
+      activeHintIds = hintState.activeIds
+      if (hintState.lingerAction === "start") root.startHintLinger(hintState.lingeringId)
       return true
     }
     return false
+  }
+
+  function cancelHintLinger() {
+    hintLingerTimer.stop()
+    lingeringHintId = ""
+  }
+
+  function startHintLinger(id) {
+    var binding = root.bindingForId(id)
+    if (guideDelayMs < 0 || !binding || binding.trackable !== true || binding.guideEligible !== true) {
+      root.cancelHintLinger()
+      return false
+    }
+    lingeringHintId = String(id)
+    hintLingerTimer.interval = Model.HINT_LINGER_MS
+    hintLingerTimer.restart()
+    return true
+  }
+
+  Timer {
+    id: hintLingerTimer
+    interval: Model.HINT_LINGER_MS
+    repeat: false
+    onTriggered: root.lingeringHintId = ""
   }
 
   function recordGuideVisible() {
@@ -170,14 +215,17 @@ Item {
 
   function loadCatalog(raw) {
     var result = Model.normalizeCatalog(raw)
+    root.cancelHintLinger()
     if (!result.ok) {
       catalog = null
       catalogState = "error"
+      activeHintIds = []
       setDiagnostic("catalogLoadFailures", 1)
       return false
     }
     catalog = result.catalog
     catalogState = "ready"
+    activeHintIds = []
     return true
   }
 
@@ -187,7 +235,10 @@ Item {
   }
 
   function openGuide() { guideVisible = true }
-  function closeGuide() { guideVisible = false }
+  function closeGuide() {
+    root.cancelHintLinger()
+    guideVisible = false
+  }
 
   function settingsEntry() {
     return Model.settingsFor(shell ? shell.barConfig : null, root.moduleName)
@@ -196,7 +247,6 @@ Item {
   function syncSettings() {
     var entry = settingsEntry()
     guideDelayMs = Model.normalizeDelay(entry.guideDelayMs)
-    guideTopOffset = Model.normalizeTopOffset(entry.guideTopOffset)
     showInFullscreen = Model.normalizeFullscreen(entry.showInFullscreen)
     guideSuperEnabled = Model.normalizeGuideRoot(entry.guideSuperEnabled)
     guideShiftEnabled = Model.normalizeGuideRoot(entry.guideShiftEnabled)
@@ -218,13 +268,6 @@ Item {
     if (next === guideDelayMs) return false
     guideDelayMs = next
     return persistSettings({ guideDelayMs: next })
-  }
-
-  function setGuideTopOffset(value) {
-    var next = Model.normalizeTopOffset(value)
-    if (next === guideTopOffset) return false
-    guideTopOffset = next
-    return persistSettings({ guideTopOffset: next })
   }
 
   function setShowInFullscreen(value) {
@@ -264,17 +307,19 @@ Item {
     return persistSettings(changes)
   }
 
-  function clearGuide() {
+  function clearGuide(preserveLinger) {
+    if (preserveLinger !== true) root.cancelHintLinger()
     guideVisible = false
     guideAwaitingLockCheck = false
     activeModifiers = ""
     activeGuideRoot = ""
-    highlightedBindingId = ""
+    activeHintIds = []
     pendingGuideReceivedMs = 0
   }
 
   function suppressGuide() {
     if (guideVisible || guideAwaitingLockCheck) clearGuide()
+    else root.cancelHintLinger()
   }
 
   function evaluatePendingGuide() {
@@ -396,7 +441,6 @@ Item {
       deferredBridgeReloadSourceHash = ""
       pendingBridgeReloadSourceHash = ""
       clearGuide()
-      highlightedBindingId = ""
     } else {
       integrationState = "error"
       integrationStateKnown = false
@@ -562,8 +606,10 @@ Item {
       if (publicationPending) root.completeCatalogPublication(loaded)
     }
     onLoadFailed: {
+      root.cancelHintLinger()
       root.catalog = null
       root.catalogState = "error"
+      root.activeHintIds = []
       root.setDiagnostic("catalogLoadFailures", 1)
       if (root.catalogPublicationPending) root.completeCatalogPublication(false)
     }

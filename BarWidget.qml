@@ -12,12 +12,12 @@ BarWidget {
   readonly property string statusMark: !service || service.integrationState === "disabled"
     ? " ·" : service.integrationState === "error" ? " !" : service.integrationState === "disconnected" ? " ?" : ""
   readonly property string tooltipSummary: service && service.integrationState === "enabled"
-    ? "Omakeez keyboard shortcuts enabled"
+    ? "Chordlight keyboard shortcuts enabled"
     : service && service.integrationState === "disconnected"
-      ? "Omakeez keyboard shortcuts disconnected"
+      ? "Chordlight keyboard shortcuts disconnected"
       : service && service.integrationState === "error"
-        ? "Omakeez needs attention"
-        : "Set up Omakeez keyboard shortcuts"
+        ? "Chordlight needs attention"
+        : "Set up Chordlight keyboard shortcuts"
 
   function syncService() {
     service = bar && bar.shell && typeof bar.shell.serviceFor === "function"

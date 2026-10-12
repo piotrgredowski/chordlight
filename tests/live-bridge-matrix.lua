@@ -23,6 +23,13 @@ local function clear_payloads()
   payloads = {}
 end
 
+local function assert_payload(expected, key)
+  for _, payload in ipairs(payloads) do
+    if payload == expected then return end
+  end
+  error(key .. " did not emit " .. expected .. " (emitted " .. #payloads .. " payloads)")
+end
+
 local function set_modifiers(mask)
   local wanted = {}
   for name in mask:gmatch("[^_]+") do wanted[name] = true end
@@ -70,14 +77,31 @@ for _, match_key in ipairs(keys) do
     on_key(code, 0, phase == "press" and 1 or 0)
 
     local expected = "omakeez:v1:match:" .. catalog.matches[match_key] .. ":" .. phase
-    assert(#payloads == 1, match_key .. " emitted " .. #payloads .. " payloads")
-    assert(payloads[1] == expected, match_key .. " emitted an unexpected payload")
+    assert_payload(expected, match_key)
 
     exercised = exercised + 1
     modifier_masks[mask] = true
     phases[phase] = true
     submaps[submap] = true
   end
+end
+
+local hint_keys = {}
+for key in pairs(catalog.guideMatches) do hint_keys[#hint_keys + 1] = key end
+table.sort(hint_keys)
+for _, hint_key in ipairs(hint_keys) do
+  local mask, code_text, submap = hint_key:match("^([^|]*)|([^|]+)|(.*)$")
+  local code = tonumber(code_text)
+  assert(mask and code, "invalid guide match key: " .. hint_key)
+  set_modifiers(mask)
+  on_submap(submap)
+  clear_payloads()
+  on_key(code, 0, 1)
+  local id = catalog.guideMatches[hint_key]
+  assert_payload("omakeez:v1:hint:" .. id .. ":down", hint_key)
+  clear_payloads()
+  on_key(code, 0, 0)
+  assert_payload("omakeez:v1:hint:" .. id .. ":up", hint_key)
 end
 
 set_modifiers("")

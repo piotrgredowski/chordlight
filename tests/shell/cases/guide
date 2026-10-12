@@ -4,24 +4,16 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 env -u DISPLAY QT_QPA_PLATFORM=minimal QT_QPA_PLATFORMTHEME= \
   qmltestrunner -input "$root/tests/qml/tst_guide.qml" -o -,txt
-grep -q 'GuideModel.canopyLayout' "$root/SuperGuide.qml"
-grep -q 'Util.alpha(Color.menu.background' "$root/SuperGuide.qml"
-grep -q 'gradient: Gradient' "$root/SuperGuide.qml"
-grep -q 'fontSizeMode: Text.HorizontalFit' "$root/SuperGuide.qml"
-grep -q 'Hold SUPER · Add SHIFT / CTRL / ALT' "$root/SuperGuide.qml"
-grep -q 'split("_").join(" + ")' "$root/SuperGuide.qml"
-if grep -q 'laneSummary' "$root/SuperGuide.qml"; then
-  echo "shortcut lane guidance belongs in the header, not a footer" >&2
+grep -q 'GuideModel.hasMatchingPrefix' "$root/SuperGuide.qml"
+grep -q 'anchors { bottom: true; left: true; right: true }' "$root/SuperGuide.qml"
+grep -q 'mask: Region {}' "$root/SuperGuide.qml"
+grep -q 'text: String(modelData || "").toUpperCase()' "$root/SuperGuide.qml"
+grep -q 'text: "+"' "$root/SuperGuide.qml"
+if rg -q 'canopyLayout|guideBackdrop|HoverHandler|overflowPill|guideTopOffset|gradient: Gradient' "$root/SuperGuide.qml"; then
+  echo "the compact hint must not retain the canopy, backdrop, or top-offset UI" >&2
   exit 1
 fi
-grep -q 'HoverHandler' "$root/SuperGuide.qml"
-grep -q 'overflowHoverTimer' "$root/SuperGuide.qml"
-grep -q 'item: overflowPill.visible && !root.expanded ? overflowPill : null' "$root/SuperGuide.qml"
-if grep -q 'mask: Region {}' "$root/SuperGuide.qml"; then
-  echo "overflow hover requires a restricted pointer region" >&2
-  exit 1
-fi
-if grep -q 'Flow {' "$root/SuperGuide.qml"; then
-  echo "legacy flow layout remains in the Super Guide" >&2
+if rg -q 'Color\.menu\.selectedBackground|guideLayout|deckCanvas' "$root/SuperGuide.qml"; then
+  echo "the compact key outline must not retain the filled tree cards" >&2
   exit 1
 fi

@@ -22,7 +22,7 @@ Panel {
     ? preview.currentHash : ""
   readonly property string displayedDiff: preview && typeof preview.proposedDiff === "string"
     ? preview.proposedDiff : ""
-  readonly property string bridgeSourceUrl: "https://github.com/cyprusad/omakeez/blob/main/bridge.lua"
+  readonly property string bridgeSourceUrl: "https://github.com/zaremb/chordlight/blob/main/bridge.lua"
   readonly property bool enableReady: !!root.service && root.preview
     && root.preview.safeToPatch === true && root.displayedHash !== ""
     && !root.service.integrationMutationRunning
@@ -143,7 +143,6 @@ Panel {
   }
 
   function delayValue(index) { return [0, 80, 150, 250, -1][index] }
-  function topOffsetValue(index) { return [0, 24, 32, 48, 64][index] }
 
   onBarChanged: syncService()
   Component.onCompleted: syncService()
@@ -206,11 +205,18 @@ Panel {
 
           Text {
             width: parent.width
-            text: root.onboarding ? "SET UP OMAKEEZ" : "OMAKEEZ"
+            text: root.onboarding ? "SET UP CHORDLIGHT" : "CHORDLIGHT"
             color: Color.foreground
             font.family: root.bar ? root.bar.fontFamily : Style.font.family
             font.pixelSize: Style.font.title
             font.bold: true
+          }
+          Text {
+            width: parent.width
+            text: "A little light for every shortcut."
+            color: Color.foreground
+            opacity: 0.68
+            font.pixelSize: Style.font.caption
           }
           Text {
             width: parent.width
@@ -245,7 +251,7 @@ Panel {
 
           Text {
             width: parent.width
-            text: "Omakeez checks the Hyprland file before it changes anything."
+            text: "Chordlight checks the Hyprland file before it changes anything."
             color: Color.foreground
             opacity: 0.78
             font.pixelSize: Style.font.caption
@@ -272,8 +278,8 @@ Panel {
               Text {
                 width: parent.width
                 text: root.enableReady
-                  ? "Omakeez can add its small local bridge without changing your existing bindings."
-                  : "Automatic setup needs review before Omakeez can change this file."
+                  ? "Chordlight can add its small local bridge without changing your existing bindings."
+                  : "Automatic setup needs review before Chordlight can change this file."
                 color: Color.foreground
                 opacity: 0.76
                 font.pixelSize: Style.font.caption
@@ -327,7 +333,7 @@ Panel {
           Text {
             width: parent.width
             visible: root.displayedDiff !== ""
-            text: "WHAT OMAKEEZ CHANGES"
+            text: "WHAT CHORDLIGHT CHANGES"
             color: Color.foreground
             opacity: 0.82
             font.pixelSize: Style.font.caption
@@ -454,7 +460,7 @@ Panel {
 
           Text {
             width: parent.width
-            text: "Omakeez shows a visual guide for registered keyboard shortcuts while you hold their starting keys."
+            text: "Chordlight outlines registered shortcuts while you hold their matching modifier and key combination, then briefly shows each shortcut's description."
             color: Color.foreground
             opacity: 0.78
             font.pixelSize: Style.font.caption
@@ -471,7 +477,7 @@ Panel {
           }
           Text {
             width: parent.width
-            text: "How long to hold a key before its guide appears. Off keeps Omakeez enabled without showing a guide."
+            text: "How long to hold a guide modifier before its hint appears. Off keeps Chordlight enabled without showing a hint."
             color: Color.foreground
             opacity: 0.78
             font.pixelSize: Style.font.caption
@@ -487,38 +493,6 @@ Panel {
                 text: ["Instant", "80 ms", "150 ms", "250 ms", "Off"][index]
                 selected: root.service && root.service.guideDelayMs === root.delayValue(index)
                 onClicked: root.service.setGuideDelayMs(root.delayValue(index))
-              }
-            }
-          }
-
-          PanelSeparator { width: parent.width; strength: 0.09 }
-
-          Text {
-            width: parent.width
-            text: "TOP OFFSET"
-            color: Color.foreground
-            opacity: 0.70
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
-          Text {
-            width: parent.width
-            text: "Push the guide down from the top edge, for displays with a notch or camera housing that would cover it."
-            color: Color.foreground
-            opacity: 0.78
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-          }
-          Flow {
-            width: parent.width
-            spacing: Style.space(4)
-            Repeater {
-              model: ["None", "24 px", "32 px", "48 px", "64 px"]
-              Button {
-                required property int index
-                text: ["None", "24 px", "32 px", "48 px", "64 px"][index]
-                selected: root.service && root.service.guideTopOffset === root.topOffsetValue(index)
-                onClicked: root.service.setGuideTopOffset(root.topOffsetValue(index))
               }
             }
           }

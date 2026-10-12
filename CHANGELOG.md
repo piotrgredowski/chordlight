@@ -2,11 +2,15 @@
 
 ## Unreleased
 
-- Added `guideTopOffset`, which moves the guide down from the top edge of the
-  screen so a notch or camera housing does not cover it. The offset band is
-  left transparent, so the bar underneath stays readable. The panel offers 24,
-  32, 48 and 64 px; the setting accepts 0-320. Defaults to 0, leaving the
-  existing appearance unchanged.
+- Renamed and rebranded the fork as Chordlight, with the tagline “A little
+  light for every shortcut.” The existing plugin ID and state path remain in place for
+  continuity; see `docs/BRANDING.md` for the planned full internal rename.
+- Registered shortcut descriptions now appear beside the chord after its key
+  is released, for up to 1.5 seconds.
+- Replaced the shortcut canopy with a compact, bottom-centered outlined chord
+  hint. It appears after the configured delay only when held modifiers match a
+  registered shortcut, and expands to a chord while its shortcut key is held.
+- Removed the unused guide top-offset setting.
 
 ## 0.1.2 — 2026-09-03
 

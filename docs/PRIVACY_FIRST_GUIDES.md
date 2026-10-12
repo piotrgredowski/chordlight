@@ -1,25 +1,24 @@
 # Privacy-first guide coverage
 
-Status: implemented for the `0.1.0` release.
+Status: compact chord hint implemented on the fork.
 
 ## Current boundary
 
-Omakeez provides transient visual guides for four Hyprland modifier roots:
-
-- `SUPER GUIDE`
-- `SHIFT GUIDE`
-- `CTRL GUIDE`
-- `ALT GUIDE`
-
-The first held modifier is the guide root. Adding another modifier selects the
-exact chord lane; releasing the root closes the guide. Each root can be turned
-on or off in the Omakeez panel without changing any underlying shortcut.
+Chordlight provides a transient outlined key hint for the four Hyprland modifier
+roots `SUPER`, `SHIFT`, `CTRL`, and `ALT`. After the configured delay, a held
+modifier appears only if it prefixes a registered, guide-eligible shortcut.
+Holding the matching shortcut key extends the hint to the complete chord; its
+release shows its registered description beside the chord for up to 1.5
+seconds. The service retains only the opaque binding ID in memory for that
+brief display; suppression or a new guide sequence clears it. Each root can be
+turned on or off without changing any underlying shortcut.
 
 The bridge receives Hyprland keyboard transitions but reduces them immediately
-to an allowlisted modifier/code/phase/submap tuple. It emits only guide state,
-modifier names, and opaque IDs for configured matches. Unmatched keys are
-discarded. See [SECURITY.md](SECURITY.md) and the in-source comments in
-[bridge.lua](../bridge.lua) for the complete boundary.
+to allowlisted modifier/code/phase/submap tuples. It emits only guide state,
+modifier masks, and opaque IDs for guide-eligible matches. It holds a matched
+ID only until its physical key is released; unmatched keys are discarded and
+never leave Hyprland. See [SECURITY.md](SECURITY.md) and the in-source comments
+in [bridge.lua](../bridge.lua) for the complete boundary.
 
 ## Data minimization
 

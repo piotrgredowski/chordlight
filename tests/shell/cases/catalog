@@ -17,6 +17,12 @@ jq -e '.bindings[] | select(.description == "Toggle style") | .combo == "-" and 
 jq -e '.bindings[] | select(.key == "code:201") | .combo == "SUPER + SHIFT + COPILOT" and .guideEligible == false' "$out/catalog.json" >/dev/null
 ! jq -e '.bindings[] | has("arg")' "$out/catalog.json" >/dev/null
 ! grep -Fq "secret" "$out/bridge-catalog.lua"
+grep -q 'guideMatches = {' "$out/bridge-catalog.lua"
+ineligible_id=$(jq -r '.bindings[] | select(.guideEligible == false) | .id' "$out/catalog.json")
+if sed -n '/guideMatches = {/,/^  }/p' "$out/bridge-catalog.lua" | grep -Fq "$ineligible_id"; then
+  echo "ineligible bindings must not appear in the guide hint allowlist" >&2
+  exit 1
+fi
 luac -p "$out/bridge-catalog.lua"
 second=$("$root/scripts/generate-catalog" --hyprctl-file "$root/tests/fixtures/catalog-binds.txt" --keymap-file "$root/tests/fixtures/catalog-keymap.txt" --output-dir "$out")
 printf '%s\n' "$second" | grep -q '"changed":false'

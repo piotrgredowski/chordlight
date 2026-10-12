@@ -10,6 +10,12 @@ return {
   matches = {
     ["SUPER|36|press|"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     ["SUPER|36|release|"] = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    ["SUPER|20|press|resize"] = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    ["SUPER|20|press|resize"] = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    ["SUPER|38|release|"] = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  guideMatches = {
+    ["SUPER|36|"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ["SUPER|20|resize"] = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    ["SUPER|38|"] = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
   }
 }

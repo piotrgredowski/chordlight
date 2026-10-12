@@ -1,13 +1,15 @@
-# Omakeez — Decision-Complete Engineering Plan
+# Chordlight — Engineering Plan
 
-Status: approved design, implementation not started  
+Status: original engineering plan; see the README and privacy guide for the
+current compact-hint product. This plan is superseded where they differ.
+
 Target: Omarchy Quattro with Hyprland 0.56.2 or newer  
 Plugin ID: `io.github.cyprusad.omakeez`
 License: MIT
 
 ## 1. Product definition
 
-Omakeez is a local-first Omarchy shell plugin that helps a user discover and learn their actual Hyprland keyboard bindings. Its primary experience is an instant, non-interactive “Super Guide” that appears while Super is held and behaves like a desktop-scale which-key panel. Usage statistics, recommendations, practice, XP, and streaks support that experience.
+Chordlight is a local-first Omarchy shell plugin that helps a user discover and learn their registered Hyprland keyboard shortcuts. Its compact outlined pill appears near the bottom of the focused monitor when a configured modifier matches a registered shortcut. It shows the chord while its key is held, then briefly shows the catalog description after release. Usage history and dispatch-result inference are outside the current product boundary.
 
 The plugin must be useful immediately after normal Omarchy installation in browse-only mode. Tracking and the Super Guide require one explicit consent click. That click performs the required Hyprland Lua config integration automatically; the user does not manually edit a file in the normal path.
 
@@ -47,7 +49,7 @@ physical keyboard
   → hl.dsp.event("omakeez:...")
   → Hyprland socket2 custom event
   → Quickshell Hyprland.rawEvent
-  → Omakeez service
+  → Chordlight service
   → guide UI + aggregate statistics
 ```
 
@@ -97,11 +99,11 @@ The final manifest is:
 {
   "schemaVersion": 1,
   "id": "io.github.cyprusad.omakeez",
-  "name": "Omakeez",
+  "name": "Chordlight",
   "version": "0.1.0",
   "author": "cyprusad",
   "license": "MIT",
-  "description": "A local-first, gamified Omarchy keybinding guide.",
+  "description": "A little light for every shortcut. A local-first Omarchy keyboard shortcut guide.",
   "kinds": ["bar-widget", "service", "overlay"],
   "entryPoints": {
     "barWidget": "BarWidget.qml",
@@ -109,7 +111,7 @@ The final manifest is:
     "overlay": "Overlay.qml"
   },
   "barWidget": {
-    "displayName": "Omakeez",
+    "displayName": "Chordlight",
     "category": "Learning",
     "allowMultiple": false,
     "defaultSection": "right",
@@ -201,11 +203,17 @@ return {
   },
   matches = {
     ["SUPER|36|press|"] = "sha256:opaque-id"
+  },
+  guideMatches = {
+    ["SUPER|36|"] = "sha256:opaque-id"
   }
 }
 ```
 
-Lua string serialization must escape all values safely. Descriptions, commands, and dispatcher arguments must never appear in this file.
+`guideMatches` contains only trackable, guide-eligible shortcuts and omits the
+press/release phase so the hint can appear while a release-triggered shortcut
+is held. Lua string serialization must escape all values safely. Descriptions,
+commands, and dispatcher arguments must never appear in this file.
 
 Regenerate on startup and after `configreloaded` or active-layout changes. Compare `sourceHash`; do nothing when unchanged. If the bridge lookup changes while tracking is enabled, perform at most one additional guarded `hyprctl reload`, using a reload-generation guard to prevent a loop.
 
@@ -226,6 +234,9 @@ The bridge will:
   mask.
 - Look up non-modifier events by modifier mask, XKB code, phase, and submap.
 - Emit a matched opaque ID only when the lookup contains that exact event.
+- For a guide-eligible exact chord, emit its opaque ID on key-down and key-up
+  so the visual hint follows the physical hold. Keep that ID only in memory
+  until release; unmatched keycodes are not retained or emitted.
 - Ignore unmatched input immediately.
 - Avoid recursive callbacks and duplicate press/release accounting.
 
@@ -237,6 +248,8 @@ omakeez:v1:guide:up
 omakeez:v1:mods:SUPER_SHIFT
 omakeez:v1:match:<opaque-id>:press
 omakeez:v1:match:<opaque-id>:release
+omakeez:v1:hint:<opaque-id>:down
+omakeez:v1:hint:<opaque-id>:up
 ```
 
 No other event shapes are accepted. Malformed or unknown-version events are ignored by the service.
@@ -339,7 +352,7 @@ property var catalog              // normalized catalog object
 property var stats                // normalized stats object
 property bool guideVisible
 property string activeModifiers
-property string highlightedBindingId
+property var activeHintIds
 property int guideDelayMs
 property bool showInFullscreen
 property bool desktopLocked
@@ -371,27 +384,19 @@ For suppression state, read `locked` from `shell.serviceFor("omarchy.lock")` and
 
 Required behavior:
 
-- Default delay: `0` ms.
-- Supported settings: `0`, `80`, `150`, `250`, and disabled.
-- No keyboard focus.
-- Empty pointer mask.
-- `ExclusionMode.Ignore`; never reserve desktop space.
-- Use Omarchy `Style`, `Color`, and `Border` tokens.
-- If the bar is at the top, position below it; otherwise use the top screen edge.
-- Hide on Super release, plugin disable, shell lock, catalog error, or integration disconnect.
-- Suppress while an Omarchy credential surface is active where its service exposes state.
-- Suppress over fullscreen windows when `showInFullscreen` is false.
-
-Content rules:
-
-- Super alone shows direct Super bindings, the daily recommendation, and modifier lanes for Shift/Ctrl/Alt.
-- Adding modifiers filters to the exact canonical modifier set.
-- Show at most 12 exact commands; append a `+N more` affordance when truncated.
-- Sort the daily recommendation first, then never-used bindings, then description alphabetically.
-- Highlight a matched binding for 140 ms before hiding, unless Super remains held for another chord.
-- A fluent chord completed before the first rendered frame may result in no visible flash; this is desirable.
-
-The guide is display-only. Users open the full overlay from the bar when they want to search or interact.
+- Use the flat catalog as the source of truth; do not add a logical tree for
+  this hint-only UI.
+- After the configured delay, show the held modifier mask only if it prefixes
+  at least one trackable, guide-eligible shortcut.
+- While a matching shortcut key is held, show its complete chord. On release,
+  restore another still-held match or show its catalog description beside the
+  chord for up to 1.5 seconds after the final matched key is released.
+- Use a compact outlined keycap row at the bottom center of the focused screen.
+  Keep the description in the same pill, omit it for modifier-only prefixes,
+  and never show dispatcher arguments or command results.
+- No keyboard focus, empty pointer mask, and `ExclusionMode.Ignore`.
+- Preserve lock, credential-prompt, fullscreen, integration, and guide-root
+  suppression behavior.
 
 ## 9. Bar panel and full overlay
 

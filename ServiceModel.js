@@ -6,6 +6,7 @@ var CATEGORIES = [
 ]
 var MODIFIERS = ["SUPER", "SHIFT", "CTRL", "ALT"]
 var PROTOCOL_PREFIX = "omakeez:v1:"
+var HINT_LINGER_MS = 1500
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -139,6 +140,12 @@ function parseProtocol(payload, catalog) {
     if (known && catalog.byId[match[1]].phase !== match[2]) return { ok: false, error: "phase-mismatch" }
     return { ok: true, type: "match", id: match[1], phase: match[2], known: known }
   }
+  var hint = payload.match(/^omakeez:v1:hint:(sha256:[0-9a-f]{64}):(down|up)$/)
+  if (hint) {
+    var binding = catalog && catalog.byId ? catalog.byId[hint[1]] : null
+    return { ok: true, type: "hint", id: hint[1], phase: hint[2],
+      known: !!(binding && binding.trackable === true && binding.guideEligible === true) }
+  }
   return { ok: false, error: "invalid-protocol" }
 }
 
@@ -148,18 +155,59 @@ function normalizeDelay(value) {
   return [0, 80, 150, 250].indexOf(number) !== -1 ? number : 0
 }
 
-function normalizeTopOffset(value) {
-  var number = Number(value)
-  if (!isFinite(number)) return 0
-  return Math.min(320, Math.max(0, Math.floor(number)))
-}
-
 function normalizeFullscreen(value) {
   return value === true
 }
 
 function normalizeGuideRoot(value) {
   return value !== false
+}
+
+function updatedHintIds(ids, id, phase) {
+  var next = Array.isArray(ids) ? ids.slice() : []
+  var bindingId = String(id || "")
+  if (bindingId === "") return next
+  if (phase === "down") {
+    next.push(bindingId)
+    return next
+  }
+  if (phase === "up") {
+    for (var i = next.length - 1; i >= 0; i--) {
+      if (next[i] === bindingId) {
+        next.splice(i, 1)
+        break
+      }
+    }
+  }
+  return next
+}
+
+function updatedHintState(ids, lingeringId, id, phase) {
+  var current = Array.isArray(ids) ? ids.slice() : []
+  var bindingId = String(id || "")
+  var wasActive = bindingId !== "" && current.indexOf(bindingId) !== -1
+  var next = updatedHintIds(current, bindingId, phase)
+  var nextLingeringId = String(lingeringId || "")
+  var lingerAction = "keep"
+
+  if (phase === "down") {
+    nextLingeringId = ""
+    lingerAction = "clear"
+  } else if (phase === "up" && wasActive) {
+    if (next.length === 0) {
+      nextLingeringId = bindingId
+      lingerAction = "start"
+    } else {
+      nextLingeringId = ""
+      lingerAction = "clear"
+    }
+  }
+
+  return { activeIds: next, lingeringId: nextLingeringId, lingerAction: lingerAction }
+}
+
+function mayTrackHint(guideVisible, awaitingLockCheck, guideRoot) {
+  return (guideVisible === true || awaitingLockCheck === true) && String(guideRoot || "") !== ""
 }
 
 function settingsFor(barConfig, moduleName) {

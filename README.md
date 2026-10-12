@@ -1,71 +1,54 @@
-# Omakeez
+# Chordlight
 
-Omakeez is a local-first visual guide for your registered Omarchy keyboard
-shortcuts. Hold an enabled starting key to see the relevant shortcuts on the
-focused monitor, without changing how the shortcuts themselves work.
+*A little light for every shortcut.*
 
-## See it in use
-
-![Omakeez Super Guide over an Omarchy desktop](assets/screenshots/super-guide.png)
-
-*The guide arranges the highest-priority shortcuts near the center, preserves
-the visible canopy while overflow expands on hover, and remains readable over
-the active workspace.*
-
-| Enabled controls | Safe first-time setup |
-|---|---|
-| ![Enabled Omakeez panel](assets/screenshots/enabled-panel.png) | ![Omakeez setup review](assets/screenshots/onboarding-panel.png) |
-| Choose guide roots, delay, fullscreen behavior, or disable the guide. | Review the config target, safety checks, exact bridge source, and proposed change before enabling. |
+Chordlight is a local-first guide for your registered Omarchy keyboard
+shortcuts. Hold a configured modifier to see a small outlined hint for matching
+shortcuts at the bottom of the focused monitor, without changing how they work.
 
 ## Requirements
 
-Omakeez is tested with Omarchy 4.0.1, Quickshell 0.3.1, and Hyprland 0.56.2.
+Chordlight is tested with Omarchy 4.0.1, Quickshell 0.3.1, and Hyprland 0.56.2.
 It is designed for Omarchy's Lua-based Hyprland configuration.
 
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/cyprusad/omakeez.git --enable
+omarchy plugin add https://github.com/zaremb/chordlight.git --enable
 ```
 
-Open the Omakeez bar widget and select **Enable visual keybinding guide**.
-Before anything changes, Omakeez shows the exact three-line bridge it proposes
-to add to the resolved Hyprland configuration. The button is the only action
-that writes configuration.
+Open the Chordlight bar widget and select **Enable visual keybinding guide**.
+Before anything changes, Chordlight shows the exact three-line bridge it
+proposes to add to the resolved Hyprland configuration. The button is the only
+action that writes configuration.
 
 The controller preserves safe symlinks and user-owned Git-dotfiles targets. If
-the target cannot be verified, Omakeez stays in setup mode and offers a manual
-snippet instead; it never asks for root access or modifies an unsafe target.
+the target cannot be verified, Chordlight stays in setup mode and offers a
+manual snippet instead; it never asks for root access or modifies an unsafe
+target.
 
 ## Using the guide
 
 Hold `SUPER`, `SHIFT`, `CTRL`, or `ALT` to open a guide for shortcuts beginning
-with that key. Add other modifier keys while holding it to narrow the visible
-bindings. The guide follows the focused monitor.
+with that key. After the configured delay, Chordlight shows the held modifier
+when it prefixes a registered shortcut. While a matching shortcut key is held,
+the hint shows its complete chord, such as `SUPER + SPACE`. When that key is
+released, its registered description appears beside the chord for 1.5 seconds.
+Unmatched keys are not shown. The outlined hint sits at the bottom of the
+focused monitor.
 
 The panel lets you:
 
 - choose each guide root independently;
 - choose how long a key must be held before the guide appears;
-- push the guide down from the top edge, for displays with a notch; and
 - keep guides hidden over fullscreen apps by default, or enable them there.
-
-### Displays with a notch
-
-The guide starts at the top edge of the focused monitor, which a notch or
-camera housing can cover. **Top offset** moves the guide down by a fixed number
-of pixels and leaves the band above it completely transparent, so the bar stays
-readable instead of sitting under the contrast gradient. The panel offers 24,
-32, 48 and 64 px, and the `guideTopOffset` bar-widget setting accepts any value
-from 0 to 320 for a housing that falls between them. The default is 0, which is
-the previous behavior.
 
 Turning off a guide root hides only that overlay. It never disables the
 underlying shortcut.
 
 ## Privacy and local files
 
-Omakeez does not record or transmit what you type or do. It has no network
+Chordlight does not record or transmit what you type or do. It has no network
 client, does not use `/dev/input`, and keeps no shortcut-use history.
 
 It keeps only the local configuration metadata required to operate safely:
@@ -82,13 +65,16 @@ The catalog excludes dispatcher arguments. See the detailed
 [security and privacy guide](docs/SECURITY.md), including an explanation of
 the [auditable bridge](bridge.lua).
 
+The Chordlight name is new; the existing Omarchy plugin ID and local state
+directory are retained for continuity. See [branding notes](docs/BRANDING.md).
+
 ## Update or remove
 
 ```sh
 omarchy plugin update io.github.cyprusad.omakeez --yes
 ```
 
-To remove it cleanly, open the Omakeez panel, select **Disable visual guide**
+To remove it cleanly, open the Chordlight panel, select **Disable visual guide**
 to remove only its managed Hyprland bridge block, then run:
 
 ```sh

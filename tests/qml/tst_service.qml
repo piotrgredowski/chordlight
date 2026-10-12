@@ -74,6 +74,14 @@ TestCase {
     var release = Model.parseProtocol("omakeez:v1:match:" + id("c") + ":release", catalog)
     verify(release.ok)
     compare(release.phase, "release")
+    var hintDown = Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down", catalog)
+    verify(hintDown.ok)
+    verify(hintDown.known)
+    compare(hintDown.phase, "down")
+    var hintUp = Model.parseProtocol("omakeez:v1:hint:" + id("c") + ":up", catalog)
+    verify(hintUp.ok)
+    verify(hintUp.known)
+    compare(hintUp.phase, "up")
   }
 
   function test_protocolRejectsMalformedAndUnknownForms() {
@@ -85,9 +93,67 @@ TestCase {
     verify(!Model.parseProtocol("omakeez:v1:mods:SUPER_CTRL_SHIFT", catalog).ok)
     verify(!Model.parseProtocol("omakeez:v1:match:" + id("b") + ":press:extra", catalog).ok)
     verify(!Model.parseProtocol("omakeez:v1:match:" + id("b") + ":release", catalog).ok)
+    verify(!Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down:extra", catalog).ok)
+    verify(!Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":press", catalog).ok)
     var unknown = Model.parseProtocol("omakeez:v1:match:" + id("d") + ":press", catalog)
     verify(unknown.ok)
     verify(!unknown.known)
+    var unknownHint = Model.parseProtocol("omakeez:v1:hint:" + id("d") + ":down", catalog)
+    verify(unknownHint.ok)
+    verify(!unknownHint.known)
+
+    var ineligibleCatalog = validCatalog()
+    ineligibleCatalog.bindings[0].guideEligible = false
+    var ineligibleHint = Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down",
+      Model.normalizeCatalog(ineligibleCatalog).catalog)
+    verify(ineligibleHint.ok)
+    verify(!ineligibleHint.known)
+  }
+
+  function test_hintLifecycleKeepsMostRecentlyPressedMatch() {
+    var first = id("b")
+    var second = id("c")
+    var active = Model.updatedHintIds([], first, "down")
+    active = Model.updatedHintIds(active, second, "down")
+    compare(active.length, 2)
+    compare(active[1], second)
+    active = Model.updatedHintIds(active, second, "up")
+    compare(active.length, 1)
+    compare(active[0], first)
+    active = Model.updatedHintIds(active, first, "up")
+    compare(active.length, 0)
+    verify(Model.mayTrackHint(false, true, "SUPER"))
+    verify(Model.mayTrackHint(true, false, "SUPER"))
+    verify(!Model.mayTrackHint(false, false, "SUPER"))
+    verify(!Model.mayTrackHint(true, false, ""))
+  }
+
+  function test_hintStateLingersOnlyAfterFinalRegisteredKeyRelease() {
+    var first = id("b")
+    var second = id("c")
+    var state = Model.updatedHintState([], "", first, "down")
+    compare(state.activeIds.length, 1)
+    compare(state.lingeringId, "")
+    compare(state.lingerAction, "clear")
+
+    state = Model.updatedHintState(state.activeIds, state.lingeringId, second, "down")
+    state = Model.updatedHintState(state.activeIds, state.lingeringId, first, "up")
+    compare(state.activeIds.length, 1)
+    compare(state.activeIds[0], second)
+    compare(state.lingerAction, "clear")
+
+    state = Model.updatedHintState(state.activeIds, state.lingeringId, second, "up")
+    compare(state.activeIds.length, 0)
+    compare(state.lingeringId, second)
+    compare(state.lingerAction, "start")
+    compare(Model.HINT_LINGER_MS, 1500)
+
+    state = Model.updatedHintState(state.activeIds, state.lingeringId, second, "up")
+    compare(state.lingeringId, second)
+    compare(state.lingerAction, "keep")
+    state = Model.updatedHintState(state.activeIds, state.lingeringId, first, "down")
+    compare(state.lingeringId, "")
+    compare(state.lingerAction, "clear")
   }
 
   function test_settingsAndBarConfigLookup() {
@@ -96,13 +162,6 @@ TestCase {
     compare(Model.normalizeDelay("150"), 150)
     compare(Model.normalizeDelay("disabled"), -1)
     compare(Model.normalizeDelay(99), 0)
-    compare(Model.normalizeTopOffset(undefined), 0)
-    compare(Model.normalizeTopOffset(48), 48)
-    compare(Model.normalizeTopOffset("32"), 32)
-    compare(Model.normalizeTopOffset(37.9), 37)
-    compare(Model.normalizeTopOffset(-10), 0)
-    compare(Model.normalizeTopOffset(9999), 320)
-    compare(Model.normalizeTopOffset("notch"), 0)
     compare(Model.normalizeFullscreen(true), true)
     compare(Model.normalizeFullscreen("true"), false)
     compare(Model.normalizeGuideRoot(undefined), true)
@@ -110,13 +169,12 @@ TestCase {
     compare(Model.normalizeGuideRoot(false), false)
 
     var barConfig = { layout: { left: [], center: [], right: [
-      { id: "io.github.cyprusad.omakeez", guideDelayMs: 150, guideTopOffset: 48, showInFullscreen: true,
+      { id: "io.github.cyprusad.omakeez", guideDelayMs: 150, showInFullscreen: true,
         guideSuperEnabled: false, guideShiftEnabled: true, guideCtrlEnabled: false, guideAltEnabled: true,
         extensionOption: "preserve-me" }
     ] } }
     var settings = Model.settingsFor(barConfig, "io.github.cyprusad.omakeez")
     compare(settings.guideDelayMs, 150)
-    compare(settings.guideTopOffset, 48)
     compare(settings.showInFullscreen, true)
     compare(settings.guideSuperEnabled, false)
     compare(settings.guideCtrlEnabled, false)
@@ -128,21 +186,19 @@ TestCase {
     var original = {
       id: "io.github.cyprusad.omakeez",
       guideDelayMs: 150,
-      guideTopOffset: 48,
       showInFullscreen: true,
       guideSuperEnabled: false,
       guideShiftEnabled: true,
       extensionOption: { keep: true }
     }
-    var updated = Model.updatedSettingsEntry(original, { guideTopOffset: 64 }, "io.github.cyprusad.omakeez")
+    var updated = Model.updatedSettingsEntry(original, { guideDelayMs: 80 }, "io.github.cyprusad.omakeez")
     compare(updated.id, original.id)
-    compare(updated.guideDelayMs, 150)
-    compare(updated.guideTopOffset, 64)
+    compare(updated.guideDelayMs, 80)
     compare(updated.showInFullscreen, true)
     compare(updated.guideSuperEnabled, false)
     compare(updated.guideShiftEnabled, true)
     compare(updated.extensionOption.keep, true)
-    compare(original.guideTopOffset, 48)
+    compare(original.guideDelayMs, 150)
     var cannotReplaceId = Model.updatedSettingsEntry(original, { id: "wrong-plugin" }, "io.github.cyprusad.omakeez")
     compare(cannotReplaceId.id, original.id)
   }
