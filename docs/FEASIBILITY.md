@@ -1,5 +1,9 @@
 # Live feasibility gate
 
+This report records live tests of the inherited Omakeez implementation. Its
+paths and protocol values are historical evidence; they are not Chordlight's
+runtime identifiers.
+
 ## Environment
 
 - Date: 2026-08-26

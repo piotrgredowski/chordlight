@@ -1,4 +1,8 @@
-# Omakeez release evidence
+# Inherited Omakeez 0.1.0 release evidence
+
+These results document the upstream release before the fork's Chordlight
+rename. They are historical evidence and do not validate a Chordlight live
+installation.
 
 Release target: `0.1.0`  
 Prepared: 2026-08-30

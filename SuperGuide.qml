@@ -137,7 +137,7 @@ Item {
         exclusionMode: ExclusionMode.Ignore
         anchors { bottom: true; left: true; right: true }
 
-        WlrLayershell.namespace: "omakeez-guide"
+        WlrLayershell.namespace: "chordlight-guide"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         mask: Region {}

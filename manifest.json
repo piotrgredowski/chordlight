@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "io.github.cyprusad.omakeez",
+  "id": "io.github.zaremb.chordlight",
   "name": "Chordlight",
   "version": "0.1.2",
-  "author": "cyprusad",
+  "author": "zaremb",
   "license": "MIT",
   "description": "A little light for every shortcut. A local-first Omarchy keyboard shortcut guide.",
   "kinds": ["bar-widget", "service"],

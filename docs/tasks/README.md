@@ -1,4 +1,9 @@
-# Omakeez Implementation Tasks
+# Chordlight Implementation Tasks
+
+This is the original engineering checklist inherited with the fork's Git
+history. Some tasks describe discarded designs and are not a list of shipped
+Chordlight features. For current behavior and install/update instructions, use
+the [README](../../README.md).
 
 This directory turns [`../PLAN.md`](../PLAN.md) into small, sequential assignments suitable for a coding agent working on one bounded problem at a time.
 

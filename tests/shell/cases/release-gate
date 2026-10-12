@@ -7,13 +7,17 @@ runtime_files="$root/bridge.lua $root/Service.qml $root/Panel.qml $root/SuperGui
 for entry in manifest.json BarWidget.qml Panel.qml Service.qml SuperGuide.qml bridge.lua ServiceModel.js GuideModel.js scripts/bridge-control scripts/generate-catalog; do
   test -f "$root/$entry"
 done
+test -s "$root/assets/screenshots/chordlight.png"
+grep -Fq 'assets/screenshots/chordlight.png' "$root/README.md"
+grep -Fq 'https://github.com/zaremb/chordlight.git' "$root/README.md"
+grep -Fq 'omarchy plugin update io.github.zaremb.chordlight' "$root/README.md"
 
 jq -e '
   .schemaVersion == 1 and
-  .id == "io.github.cyprusad.omakeez" and
+  .id == "io.github.zaremb.chordlight" and
   .name == "Chordlight" and
   .version == "0.1.2" and
-  .author == "cyprusad" and
+  .author == "zaremb" and
   .license == "MIT" and
   (.kinds == ["bar-widget", "service"]) and
   (.entryPoints.barWidget == "BarWidget.qml") and
@@ -40,6 +44,11 @@ for removed in Overlay.qml Stats.js Recommendations.js scripts/stats-store; do
 done
 if rg -n -i 'stats\.json|recordStatsObservation|dailyQuest|totalXp|streak|recommendations' $runtime_files; then
   echo "legacy activity persistence or gamification remains in runtime code" >&2
+  exit 1
+fi
+
+if rg -n 'io\.github\.cyprusad|omakeez:v1:|/omarchy/omakeez|Omakeez managed bridge|__omakeez_bridge_state' $runtime_files; then
+  echo "runtime code contains retired Omakeez internal identifiers" >&2
   exit 1
 fi
 

@@ -1,14 +1,19 @@
-# Chordlight branding
+# Chordlight identity
 
-The GitHub fork is [`zaremb/chordlight`](https://github.com/zaremb/chordlight).
-Its product name is **Chordlight** and its tagline is **“A little light for
-every shortcut.”** The fork keeps its Git history.
+The fork is published as
+[`zaremb/chordlight`](https://github.com/zaremb/chordlight), with the product
+name **Chordlight** and tagline **“A little light for every shortcut.”** It
+keeps the upstream Git history while using independent runtime identities:
 
-This first branding pass changes the repository name and user-facing copy. It
-keeps the existing Omarchy plugin ID, settings key, bridge protocol, managed
-config marker, and `${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omakeez/`
-state path so current installations and their local data continue to work.
+- Omarchy plugin ID: `io.github.zaremb.chordlight`
+- Hyprland event protocol: `chordlight:v1:`
+- Managed config markers: `Chordlight managed bridge`
+- Layer-shell namespace: `chordlight-guide`
+- IPC target: `chordlight-feasibility`
+- Runtime state: `${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight/`
 
-A later full internal rename is planned. That work must account for installed
-plugin continuity and migration of existing settings, bridge blocks, and local
-state before changing these identifiers.
+Chordlight is a separate plugin, not a renamed marketplace update of Omakeez.
+It does not read, import, or delete Omakeez settings or runtime state. To switch,
+disable the visual guide in the old Omakeez panel first, remove that plugin,
+then install this repository directly. The old state is left untouched; its
+backups may still be useful for restoring a previous Hyprland config.

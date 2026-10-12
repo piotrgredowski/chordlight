@@ -3,7 +3,7 @@ import QtTest 1.3
 import "../../GuideModel.js" as GuideModel
 
 TestCase {
-  name: "OmakeezGuideModel"
+  name: "ChordlightGuideModel"
 
   function binding(number, modifiers, trackable, eligible) {
     return {

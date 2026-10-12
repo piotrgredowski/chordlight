@@ -13,13 +13,18 @@ hyprctl configerrors
 After an update, refresh the installed plugin and reopen its panel:
 
 ```sh
-omarchy plugin update io.github.cyprusad.omakeez --yes
+omarchy plugin update io.github.zaremb.chordlight --yes
 omarchy restart shell
 ```
 
 The live controller is the copy inside the installed plugin directory. Do not
 use a checkout controller to mutate a bridge installed from a different path;
 the exact-marker protection intentionally rejects it.
+
+When switching from Omakeez, disable **Enable visual keybinding guide** in the
+old Omakeez panel before removing that plugin. Then install Chordlight from its
+GitHub repository. The Chordlight controller does not manage Omakeez's bridge
+or local state.
 
 ## Controller reason codes
 
@@ -48,7 +53,7 @@ the exact-marker protection intentionally rejects it.
 
 If the bar widget is absent, confirm the plugin is enabled and run the rescan
 command above. If a guide is absent, verify that its starting key is enabled in
-the Omakeez panel, the catalog has finished generating, the active window is
+the Chordlight panel, the catalog has finished generating, the active window is
 not fullscreen (unless enabled), and the session is not locked or showing an
 Omarchy Polkit dialog.
 
@@ -59,14 +64,14 @@ hyprctl reload
 hyprctl configerrors
 ```
 
-Then reopen Omakeez; it regenerates its local catalog from the active binding
+Then reopen Chordlight; it regenerates its local catalog from the active binding
 table. A clean `hyprctl configerrors` result has no output.
 
-For a cautious local audit, list only Omakeez's operational state:
+For a cautious local audit, list only Chordlight's operational state:
 
 ```sh
-omakeez_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omakeez"
-find "$omakeez_state_dir" -maxdepth 2 -type f -printf '%M %f %s bytes\n' | sort
+chordlight_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight"
+find "$chordlight_state_dir" -maxdepth 2 -type f -printf '%M %f %s bytes\n' | sort
 ```
 
 If setup fails, do not delete a managed block blindly. Use **Review exact

@@ -1,4 +1,4 @@
--- Omakeez's deliberately small Hyprland input observer.
+-- Chordlight's deliberately small Hyprland input observer.
 --
 -- SECURITY MODEL
 -- This file runs only because the user explicitly approves a three-line
@@ -17,7 +17,7 @@
 -- window titles, application names, passwords, or unmatched key codes. It
 -- does not write any data. A missing or malformed generated catalog disables
 -- the bridge rather than broadening what it observes or emits.
-local STATE_NAME = "__omakeez_bridge_state"
+local STATE_NAME = "__chordlight_bridge_state"
 local ORDERED_MODIFIERS = { "SUPER", "SHIFT", "CTRL", "ALT" }
 
 local state_home = os.getenv("XDG_STATE_HOME")
@@ -47,7 +47,7 @@ end
 -- by the generator. `pcall` lets a partially-written catalog fail closed while
 -- the service is regenerating it.
 local function load_catalog()
-  local loaded, catalog = pcall(dofile, state_home .. "/omarchy/omakeez/bridge-catalog.lua")
+  local loaded, catalog = pcall(dofile, state_home .. "/omarchy/chordlight/bridge-catalog.lua")
   if not loaded or type(catalog) ~= "table" or catalog.schemaVersion ~= 1
     or type(catalog.matches) ~= "table"
     or type(catalog.guideMatches) ~= "table" then return nil, nil end
@@ -173,7 +173,7 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
         bridge.hintHeld = {}
         if was_empty then
           bridge.guideRoot = name
-          emit("omakeez:v1:guide:down:" .. name)
+          emit("chordlight:v1:guide:down:" .. name)
         end
       else
         if not bridge.held[name][code] then return end
@@ -181,12 +181,12 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
         bridge.hintHeld = {}
         if name == bridge.guideRoot and was_held and not is_held(name) then
           bridge.guideRoot = nil
-          emit("omakeez:v1:guide:up")
+          emit("chordlight:v1:guide:up")
           return
         end
       end
       if bridge.guideRoot and not was_empty then
-        emit("omakeez:v1:mods:" .. modifier_mask())
+        emit("chordlight:v1:mods:" .. modifier_mask())
       end
       return
     end
@@ -198,7 +198,7 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
   local phase = state == 1 and "press" or "release"
   local key = modifier_mask() .. "|" .. tostring(code) .. "|" .. phase .. "|" .. bridge.submap
   local id = bridge.catalog.matches[key]
-  if valid_id(id) then emit("omakeez:v1:match:" .. id .. ":" .. phase) end
+  if valid_id(id) then emit("chordlight:v1:match:" .. id .. ":" .. phase) end
 
   -- Hint lifecycle events are limited to registered, guide-eligible chords.
   -- Keep only the matched opaque ID until this physical key is released; an
@@ -208,13 +208,13 @@ hl.on("input.keyboard.key", function(keycode, timestamp, event_state)
     local guide_id = bridge.catalog.guideMatches[guide_key]
     if valid_id(guide_id) and not bridge.hintHeld[code] then
       bridge.hintHeld[code] = guide_id
-      emit("omakeez:v1:hint:" .. guide_id .. ":down")
+      emit("chordlight:v1:hint:" .. guide_id .. ":down")
     end
   else
     local held_id = bridge.hintHeld[code]
     if held_id then
       bridge.hintHeld[code] = nil
-      emit("omakeez:v1:hint:" .. held_id .. ":up")
+      emit("chordlight:v1:hint:" .. held_id .. ":up")
     end
   end
 end)
@@ -228,7 +228,7 @@ hl.on("keybinds.submap", function(event)
   if type(event) == "string" then
     if event ~= bridge.submap then
       for _, id in pairs(bridge.hintHeld) do
-        if valid_id(id) then emit("omakeez:v1:hint:" .. id .. ":up") end
+        if valid_id(id) then emit("chordlight:v1:hint:" .. id .. ":up") end
       end
       bridge.hintHeld = {}
       bridge.submap = event

@@ -7,7 +7,7 @@ import "ServiceModel.js" as Model
 Item {
   id: root
 
-  readonly property string moduleName: "io.github.cyprusad.omakeez"
+  readonly property string moduleName: "io.github.zaremb.chordlight"
   property var shell: null
   property var manifest: null
 
@@ -68,7 +68,7 @@ Item {
 
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
-  readonly property string stateDir: stateHome + "/omarchy/omakeez"
+  readonly property string stateDir: stateHome + "/omarchy/chordlight"
 
   function localPath(url) {
     var value = String(url || "")
@@ -85,7 +85,7 @@ Item {
   function protocolPayload(event) {
     if (!event || String(event.name || "") !== "custom") return ""
     var payload = String(event.data || "")
-    return payload.indexOf("omakeez:") === 0 ? payload : ""
+    return payload.indexOf("chordlight:") === 0 ? payload : ""
   }
 
   function setDiagnostic(name, delta) {
@@ -858,7 +858,7 @@ Item {
   }
 
   IpcHandler {
-    target: "omakeez-feasibility"
+    target: "chordlight-feasibility"
     function diagnostics(): string { return root.diagnosticsJson() }
     function reset(): string { root.resetDiagnostics(); return "ok" }
   }

@@ -76,7 +76,7 @@ for _, match_key in ipairs(keys) do
     clear_payloads()
     on_key(code, 0, phase == "press" and 1 or 0)
 
-    local expected = "omakeez:v1:match:" .. catalog.matches[match_key] .. ":" .. phase
+    local expected = "chordlight:v1:match:" .. catalog.matches[match_key] .. ":" .. phase
     assert_payload(expected, match_key)
 
     exercised = exercised + 1
@@ -98,10 +98,10 @@ for _, hint_key in ipairs(hint_keys) do
   clear_payloads()
   on_key(code, 0, 1)
   local id = catalog.guideMatches[hint_key]
-  assert_payload("omakeez:v1:hint:" .. id .. ":down", hint_key)
+  assert_payload("chordlight:v1:hint:" .. id .. ":down", hint_key)
   clear_payloads()
   on_key(code, 0, 0)
-  assert_payload("omakeez:v1:hint:" .. id .. ":up", hint_key)
+  assert_payload("chordlight:v1:hint:" .. id .. ":up", hint_key)
 end
 
 set_modifiers("")

@@ -1,4 +1,10 @@
-# Omakeez progress
+# Inherited Omakeez progress
+
+This is a historical development log from the upstream Omakeez project. The
+fork is now Chordlight, with independent runtime identities and its own
+installation instructions in the [README](../README.md). Marketplace status,
+repository names, and identifiers below describe upstream at the time they
+were recorded.
 
 | Task | Status | Commit | Notes |
 |---|---|---|---|
@@ -39,7 +45,7 @@
 |---|---|---|---|
 | 01 — Super Guide behavior and look | Complete (manual UX gate passed) | 24b5a91 | The ranked canopy follows the familiar `SUPER+K` order from the center outward in both primary and secondary rows, resolves physical `code:N` bindings through the active XKB keymap, and uses stepped corner caps that attach to the secondary row plus extended edge wings to expose six additional low-priority shortcuts. The duplicate Copilot menu binding is labeled accurately but excluded from the guide. Shift/Ctrl/Alt discovery is a terse header hint with no footer or counts, active lanes use human-readable chords, and the guide aligns with the top screen edge. Expansion preserves the entire visible canopy frame and balances only hidden choices into its interior; fully fitting lanes keep that same frame. The visible overflow pill matches a binding card while its wider reserved slot preserves the stepped secondary row. Header guidance uses normal sentence case around all-caps shortcut names, and chord text is larger and bolder than its description. Two-line cards, contrast shield, and restrained motion remain. True backdrop blur is deferred because it would require compositor-specific configuration. See `UX_POLISH_01_SUPER_GUIDE.md`. |
 | 02 — Privacy-first guide coverage | Complete | 06c0026 | `SUPER`, `CTRL`, `ALT`, and `SHIFT` root the hold-to-reveal guide under consent. The first-held root is stable until release, and added modifiers select the exact chord lane. There is no activity persistence, telemetry, or selection policy. See `PRIVACY_FIRST_GUIDES.md`. |
-| 03 — Omakeez panel and privacy simplification | Complete | 06c0026 | The rebranded panel provides visual settings and controlled integration with no gamification surfaces; the obsolete stats/recommendation runtime and full Dojo overlay are removed. Setup and enabled states use a consistent visual hierarchy, the bar has no activity badge, and the original keyboard glyph remains after the rejected logo experiment. See `UX_POLISH_02_OMAKEEZ_OVERLAY.md`. |
+| 03 — Omakeez panel and privacy simplification | Complete | 06c0026 | The rebranded panel provides visual settings and controlled integration with no gamification surfaces; the obsolete stats/recommendation runtime and full Dojo overlay are removed. Setup and enabled states use a consistent visual hierarchy, the bar has no activity badge, and the original keyboard glyph remains after the rejected logo experiment. See `UX_POLISH_02_CHORDLIGHT_OVERLAY.md`. |
 
 ## Commit log
 

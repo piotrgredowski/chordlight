@@ -1,8 +1,8 @@
 local root = arg[1]
 local callbacks, payloads = {}, {}
 local state_home = assert(os.getenv("XDG_STATE_HOME"))
-local catalog_path = state_home .. "/omarchy/omakeez/bridge-catalog.lua"
-local catalog_seed = state_home .. "/omarchy/omakeez/bridge-catalog.seed.lua"
+local catalog_path = state_home .. "/omarchy/chordlight/bridge-catalog.lua"
+local catalog_seed = state_home .. "/omarchy/chordlight/bridge-catalog.seed.lua"
 hl = {
   on = function(name, callback)
     callbacks[name] = callbacks[name] or {}
@@ -15,7 +15,7 @@ X = function(name, event)
   assert(callbacks[name], "missing callback: " .. name)
   for _, callback in ipairs(callbacks[name]) do callback(event) end
 end
--- A pre-rebrand bridge state must never prevent Omakeez from registering its
+-- A pre-rebrand bridge state must never prevent Chordlight from registering its
 -- own callbacks in the same Hyprland Lua session.
 _G.__keybind_dojo_bridge_state = { enabled = true }
 assert(pcall(dofile, root .. "/bridge.lua"))
@@ -34,7 +34,7 @@ assert(count == 2)
 assert(#callbacks["input.keyboard.key"] == 1)
 assert(#callbacks["keybinds.submap"] == 1)
 X("input.keyboard.key", { keycode = 133, state = 1 })
-assert(payloads[1] == "omakeez:v1:guide:down:SUPER")
+assert(payloads[1] == "chordlight:v1:guide:down:SUPER")
 X("input.keyboard.key", { keycode = 133, state = 1 })
 X("input.keyboard.key", { keycode = 36, state = 1 })
 X("input.keyboard.key", { keycode = 36, state = 0 })
@@ -45,25 +45,25 @@ X("input.keyboard.key", { keycode = 20, state = 1 })
 X("input.keyboard.key", { keycode = 10, state = 1 })
 X("input.keyboard.key", { keycode = 10, state = 0 })
 X("input.keyboard.key", { keycode = 133, state = 0 })
-assert(payloads[1] == "omakeez:v1:guide:down:SUPER")
+assert(payloads[1] == "chordlight:v1:guide:down:SUPER")
 assert(payloads[2]:match(":match:sha256:a") ~= nil)
-assert(payloads[3] == "omakeez:v1:hint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:down")
+assert(payloads[3] == "chordlight:v1:hint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:down")
 assert(payloads[4]:match(":match:sha256:b") ~= nil)
-assert(payloads[5] == "omakeez:v1:hint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:up")
-assert(payloads[6] == "omakeez:v1:hint:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:down")
+assert(payloads[5] == "chordlight:v1:hint:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:up")
+assert(payloads[6] == "chordlight:v1:hint:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:down")
 assert(payloads[7]:match(":match:sha256:e") ~= nil)
-assert(payloads[8] == "omakeez:v1:hint:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:up")
+assert(payloads[8] == "chordlight:v1:hint:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee:up")
 assert(payloads[9]:match(":match:sha256:c") ~= nil)
-assert(payloads[10] == "omakeez:v1:hint:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:down")
-assert(payloads[11] == "omakeez:v1:guide:up")
+assert(payloads[10] == "chordlight:v1:hint:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:down")
+assert(payloads[11] == "chordlight:v1:guide:up")
 X("input.keyboard.key", { keycode = 64, state = 1 })
 X("input.keyboard.key", { keycode = 50, state = 1 })
 X("input.keyboard.key", { keycode = 50, state = 0 })
 X("input.keyboard.key", { keycode = 64, state = 0 })
-assert(payloads[12] == "omakeez:v1:guide:down:ALT")
-assert(payloads[13] == "omakeez:v1:mods:SHIFT_ALT")
-assert(payloads[14] == "omakeez:v1:mods:ALT")
-assert(payloads[15] == "omakeez:v1:guide:up")
+assert(payloads[12] == "chordlight:v1:guide:down:ALT")
+assert(payloads[13] == "chordlight:v1:mods:SHIFT_ALT")
+assert(payloads[14] == "chordlight:v1:mods:ALT")
+assert(payloads[15] == "chordlight:v1:guide:up")
 for _ = 1, 10000 do X("input.keyboard.key", { keycode = 10, state = 1 }) end
 assert(#payloads == 15)
 -- A live Hyprland reload re-evaluates bridge.lua. It must replace the
@@ -88,7 +88,7 @@ assert(pcall(dofile, root .. "/bridge.lua"))
 assert(registration_count() == count)
 assert(#callbacks["input.keyboard.key"] == 1)
 assert(#callbacks["keybinds.submap"] == 1)
-local refreshed = assert(_G.__omakeez_bridge_state)
+local refreshed = assert(_G.__chordlight_bridge_state)
 assert(refreshed.catalog.matches["SUPER|36|press|"] == nil)
 assert(refreshed.catalog.guideMatches["SUPER|36|"] == nil)
 assert(refreshed.catalog.matches["SUPER|20|press|resize"] == "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
@@ -96,13 +96,13 @@ assert(refreshed.guideRoot == nil and refreshed.submap == "")
 X("input.keyboard.key", { keycode = 133, state = 1 })
 X("input.keyboard.key", { keycode = 36, state = 1 })
 assert(#payloads == 16)
-assert(payloads[16] == "omakeez:v1:guide:down:SUPER")
+assert(payloads[16] == "chordlight:v1:guide:down:SUPER")
 X("input.keyboard.key", { keycode = 133, state = 0 })
 X("keybinds.submap", "resize")
 X("input.keyboard.key", { keycode = 133, state = 1 })
 X("input.keyboard.key", { keycode = 20, state = 1 })
 assert(payloads[19]:match(":match:sha256:d") ~= nil)
-assert(payloads[20] == "omakeez:v1:hint:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd:down")
+assert(payloads[20] == "chordlight:v1:hint:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd:down")
 
 -- A malformed replacement disables the existing bridge snapshot. Ordinary
 -- keys then remain inert; file access is retried only by another Lua reload.

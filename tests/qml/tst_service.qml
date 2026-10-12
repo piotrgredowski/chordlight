@@ -3,7 +3,7 @@ import QtTest 1.3
 import "../../ServiceModel.js" as Model
 
 TestCase {
-  name: "OmakeezServiceModel"
+  name: "ChordlightServiceModel"
 
   function id(letter) { return "sha256:" + Array(65).join(letter) }
 
@@ -62,23 +62,23 @@ TestCase {
 
   function test_everyValidProtocolForm() {
     var catalog = Model.normalizeCatalog(validCatalog()).catalog
-    compare(Model.parseProtocol("omakeez:v1:super:down", catalog).root, "SUPER")
-    compare(Model.parseProtocol("omakeez:v1:guide:down:ALT", catalog).root, "ALT")
-    compare(Model.parseProtocol("omakeez:v1:guide:up", catalog).phase, "up")
-    compare(Model.parseProtocol("omakeez:v1:mods:SUPER_SHIFT_CTRL_ALT", catalog).modifiers, "SUPER_SHIFT_CTRL_ALT")
-    compare(Model.parseProtocol("omakeez:v1:mods:SHIFT_ALT", catalog).modifiers, "SHIFT_ALT")
-    var press = Model.parseProtocol("omakeez:v1:match:" + id("b") + ":press", catalog)
+    compare(Model.parseProtocol("chordlight:v1:super:down", catalog).root, "SUPER")
+    compare(Model.parseProtocol("chordlight:v1:guide:down:ALT", catalog).root, "ALT")
+    compare(Model.parseProtocol("chordlight:v1:guide:up", catalog).phase, "up")
+    compare(Model.parseProtocol("chordlight:v1:mods:SUPER_SHIFT_CTRL_ALT", catalog).modifiers, "SUPER_SHIFT_CTRL_ALT")
+    compare(Model.parseProtocol("chordlight:v1:mods:SHIFT_ALT", catalog).modifiers, "SHIFT_ALT")
+    var press = Model.parseProtocol("chordlight:v1:match:" + id("b") + ":press", catalog)
     verify(press.ok)
     verify(press.known)
     compare(press.phase, "press")
-    var release = Model.parseProtocol("omakeez:v1:match:" + id("c") + ":release", catalog)
+    var release = Model.parseProtocol("chordlight:v1:match:" + id("c") + ":release", catalog)
     verify(release.ok)
     compare(release.phase, "release")
-    var hintDown = Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down", catalog)
+    var hintDown = Model.parseProtocol("chordlight:v1:hint:" + id("b") + ":down", catalog)
     verify(hintDown.ok)
     verify(hintDown.known)
     compare(hintDown.phase, "down")
-    var hintUp = Model.parseProtocol("omakeez:v1:hint:" + id("c") + ":up", catalog)
+    var hintUp = Model.parseProtocol("chordlight:v1:hint:" + id("c") + ":up", catalog)
     verify(hintUp.ok)
     verify(hintUp.known)
     compare(hintUp.phase, "up")
@@ -86,25 +86,25 @@ TestCase {
 
   function test_protocolRejectsMalformedAndUnknownForms() {
     var catalog = Model.normalizeCatalog(validCatalog()).catalog
-    verify(!Model.parseProtocol("omakeez:v2:super:down", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:super:down:extra", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:guide:down:CAPS", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:guide:up:extra", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:mods:SUPER_CTRL_SHIFT", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:match:" + id("b") + ":press:extra", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:match:" + id("b") + ":release", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down:extra", catalog).ok)
-    verify(!Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":press", catalog).ok)
-    var unknown = Model.parseProtocol("omakeez:v1:match:" + id("d") + ":press", catalog)
+    verify(!Model.parseProtocol("chordlight:v2:super:down", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:super:down:extra", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:guide:down:CAPS", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:guide:up:extra", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:mods:SUPER_CTRL_SHIFT", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:match:" + id("b") + ":press:extra", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:match:" + id("b") + ":release", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:hint:" + id("b") + ":down:extra", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:hint:" + id("b") + ":press", catalog).ok)
+    var unknown = Model.parseProtocol("chordlight:v1:match:" + id("d") + ":press", catalog)
     verify(unknown.ok)
     verify(!unknown.known)
-    var unknownHint = Model.parseProtocol("omakeez:v1:hint:" + id("d") + ":down", catalog)
+    var unknownHint = Model.parseProtocol("chordlight:v1:hint:" + id("d") + ":down", catalog)
     verify(unknownHint.ok)
     verify(!unknownHint.known)
 
     var ineligibleCatalog = validCatalog()
     ineligibleCatalog.bindings[0].guideEligible = false
-    var ineligibleHint = Model.parseProtocol("omakeez:v1:hint:" + id("b") + ":down",
+    var ineligibleHint = Model.parseProtocol("chordlight:v1:hint:" + id("b") + ":down",
       Model.normalizeCatalog(ineligibleCatalog).catalog)
     verify(ineligibleHint.ok)
     verify(!ineligibleHint.known)
@@ -169,29 +169,29 @@ TestCase {
     compare(Model.normalizeGuideRoot(false), false)
 
     var barConfig = { layout: { left: [], center: [], right: [
-      { id: "io.github.cyprusad.omakeez", guideDelayMs: 150, showInFullscreen: true,
+      { id: "io.github.zaremb.chordlight", guideDelayMs: 150, showInFullscreen: true,
         guideSuperEnabled: false, guideShiftEnabled: true, guideCtrlEnabled: false, guideAltEnabled: true,
         extensionOption: "preserve-me" }
     ] } }
-    var settings = Model.settingsFor(barConfig, "io.github.cyprusad.omakeez")
+    var settings = Model.settingsFor(barConfig, "io.github.zaremb.chordlight")
     compare(settings.guideDelayMs, 150)
     compare(settings.showInFullscreen, true)
     compare(settings.guideSuperEnabled, false)
     compare(settings.guideCtrlEnabled, false)
     compare(settings.extensionOption, "preserve-me")
-    compare(Model.settingsFor({}, "io.github.cyprusad.omakeez").guideDelayMs, undefined)
+    compare(Model.settingsFor({}, "io.github.zaremb.chordlight").guideDelayMs, undefined)
   }
 
   function test_settingUpdatePreservesExistingEntry() {
     var original = {
-      id: "io.github.cyprusad.omakeez",
+      id: "io.github.zaremb.chordlight",
       guideDelayMs: 150,
       showInFullscreen: true,
       guideSuperEnabled: false,
       guideShiftEnabled: true,
       extensionOption: { keep: true }
     }
-    var updated = Model.updatedSettingsEntry(original, { guideDelayMs: 80 }, "io.github.cyprusad.omakeez")
+    var updated = Model.updatedSettingsEntry(original, { guideDelayMs: 80 }, "io.github.zaremb.chordlight")
     compare(updated.id, original.id)
     compare(updated.guideDelayMs, 80)
     compare(updated.showInFullscreen, true)
@@ -199,7 +199,7 @@ TestCase {
     compare(updated.guideShiftEnabled, true)
     compare(updated.extensionOption.keep, true)
     compare(original.guideDelayMs, 150)
-    var cannotReplaceId = Model.updatedSettingsEntry(original, { id: "wrong-plugin" }, "io.github.cyprusad.omakeez")
+    var cannotReplaceId = Model.updatedSettingsEntry(original, { id: "wrong-plugin" }, "io.github.zaremb.chordlight")
     compare(cannotReplaceId.id, original.id)
   }
 

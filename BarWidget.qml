@@ -5,7 +5,7 @@ import qs.Ui
 BarWidget {
   id: root
 
-  moduleName: "io.github.cyprusad.omakeez"
+  moduleName: "io.github.zaremb.chordlight"
 
   property var service: null
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false

@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Renamed and rebranded the fork as Chordlight, with the tagline “A little
-  light for every shortcut.” The existing plugin ID and state path remain in place for
-  continuity; see `docs/BRANDING.md` for the planned full internal rename.
+- Renamed the fork to Chordlight, with independent plugin, protocol, bridge,
+  IPC, layer-shell, and runtime-state identities. See `docs/BRANDING.md` for
+  the clean switch from the separate Omakeez marketplace plugin.
 - Registered shortcut descriptions now appear beside the chord after its key
   is released, for up to 1.5 seconds.
 - Replaced the shortcut canopy with a compact, bottom-centered outlined chord

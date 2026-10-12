@@ -5,7 +5,7 @@ var CATEGORIES = [
   "media", "clipboard", "notifications", "style", "other"
 ]
 var MODIFIERS = ["SUPER", "SHIFT", "CTRL", "ALT"]
-var PROTOCOL_PREFIX = "omakeez:v1:"
+var PROTOCOL_PREFIX = "chordlight:v1:"
 var HINT_LINGER_MS = 1500
 
 function isObject(value) {
@@ -124,23 +124,23 @@ function parseProtocol(payload, catalog) {
   if (payload === PROTOCOL_PREFIX + "super:down") return { ok: true, type: "guide", phase: "down", root: "SUPER" }
   if (payload === PROTOCOL_PREFIX + "super:up") return { ok: true, type: "guide", phase: "up", root: "SUPER" }
 
-  var guideDown = payload.match(/^omakeez:v1:guide:down:(SUPER|SHIFT|CTRL|ALT)$/)
+  var guideDown = payload.match(/^chordlight:v1:guide:down:(SUPER|SHIFT|CTRL|ALT)$/)
   if (guideDown) return { ok: true, type: "guide", phase: "down", root: guideDown[1] }
   if (payload === PROTOCOL_PREFIX + "guide:up") return { ok: true, type: "guide", phase: "up" }
 
-  var modifierMatch = payload.match(/^omakeez:v1:mods:(.*)$/)
+  var modifierMatch = payload.match(/^chordlight:v1:mods:(.*)$/)
   if (modifierMatch) {
     if (!allowedModifierMask(modifierMatch[1])) return { ok: false, error: "invalid-modifiers" }
     return { ok: true, type: "mods", modifiers: modifierMatch[1] }
   }
 
-  var match = payload.match(/^omakeez:v1:match:(sha256:[0-9a-f]{64}):(press|release)$/)
+  var match = payload.match(/^chordlight:v1:match:(sha256:[0-9a-f]{64}):(press|release)$/)
   if (match) {
     var known = !!(catalog && catalog.byId && catalog.byId[match[1]])
     if (known && catalog.byId[match[1]].phase !== match[2]) return { ok: false, error: "phase-mismatch" }
     return { ok: true, type: "match", id: match[1], phase: match[2], known: known }
   }
-  var hint = payload.match(/^omakeez:v1:hint:(sha256:[0-9a-f]{64}):(down|up)$/)
+  var hint = payload.match(/^chordlight:v1:hint:(sha256:[0-9a-f]{64}):(down|up)$/)
   if (hint) {
     var binding = catalog && catalog.byId ? catalog.byId[hint[1]] : null
     return { ok: true, type: "hint", id: hint[1], phase: hint[2],

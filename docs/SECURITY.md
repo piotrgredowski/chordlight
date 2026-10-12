@@ -26,17 +26,21 @@ the controller may atomically edit the resolved Hyprland configuration target.
 It writes local operational files in:
 
 ```text
-${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/omakeez/
+${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight/
 ```
 
 The leaf state directory is user-owned with mode `0700`; generated files use
 mode `0600`. Catalog generation repairs legacy user-owned state directories
 that were created with broader permissions and rejects symlinked or
 foreign-owned output directories. Controller mutations reject a symlink at
-the final `omakeez` directory, including a dangling symlink, and reject
+the final `chordlight` directory, including a dangling symlink, and reject
 foreign-owned or group/world-accessible state directories before changing
 them. Symlinks in parent directories are allowed, so a relocated
 `XDG_STATE_HOME` remains supported.
+
+This directory is created as fresh Chordlight state. Chordlight does not read,
+import, or delete the separate Omakeez state directory. Disable the old bridge
+through the Omakeez panel before removing that plugin.
 
 | File or directory | Purpose |
 |---|---|
@@ -107,9 +111,9 @@ and the panel provides a manual snippet instead.
 4. Confirm the resolved Hyprland file contains exactly one guarded block:
 
    ```lua
-   -- >>> Omakeez managed bridge >>>
-   pcall(dofile, "…/io.github.cyprusad.omakeez/bridge.lua")
-   -- <<< Omakeez managed bridge <<<
+   -- >>> Chordlight managed bridge >>>
+   pcall(dofile, "…/io.github.zaremb.chordlight/bridge.lua")
+   -- <<< Chordlight managed bridge <<<
    ```
 
 Use the installed plugin's controller for a live audit. A checkout embeds a

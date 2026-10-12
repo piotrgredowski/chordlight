@@ -6,8 +6,8 @@ import qs.Ui
 Panel {
   id: root
 
-  moduleName: "io.github.cyprusad.omakeez"
-  ipcTarget: "io.github.cyprusad.omakeez"
+  moduleName: "io.github.zaremb.chordlight"
+  ipcTarget: "io.github.zaremb.chordlight"
   manageIpc: false
 
   property var anchorItem: null

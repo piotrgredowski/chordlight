@@ -1,10 +1,10 @@
-# UX Polish 02 — Omakeez panel and privacy simplification
+# UX Polish 02 — Chordlight panel and privacy simplification
 
 Status: implemented for the `0.1.0` release.
 
 ## Outcome
 
-Omakeez is a visual, local-first reference for configured shortcuts. It is not
+Chordlight is a visual, local-first reference for configured shortcuts. It is not
 a game, productivity tracker, or shortcut-use analytics product.
 
 The active panel is intentionally compact:
@@ -26,6 +26,6 @@ browser—not merely hidden UI surfaces.
 - A future security-documentation browser link from the active panel.
 - Read-only provider cards for application-local documentation such as Tmux or
   Herdr.
-- A custom Omakeez mark, only after a designer supplies a full logo and a
+- A custom Chordlight mark, only after a designer supplies a full logo and a
   separately optimized micro-icon. The experimental raster-derived mark was
   rejected and the original keyboard glyph remains in use.
