@@ -84,7 +84,7 @@ keybinding-use history, commands, dispatcher arguments, window titles,
 application identifiers, or telemetry.
 
 After a registered shortcut key is released, the shell service may retain its
-opaque binding ID in memory for at most 1.5 seconds so the guide can display
+opaque binding ID in memory for at most 3 seconds so the guide can display
 the catalog description. New guide input, suppression, or timeout clears it;
 the ID and description are never written to a history or statistics file.
 

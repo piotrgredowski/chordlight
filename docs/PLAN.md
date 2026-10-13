@@ -390,7 +390,7 @@ Required behavior:
   at least one trackable, guide-eligible shortcut.
 - While a matching shortcut key is held, show its complete chord. On release,
   restore another still-held match or show its catalog description beside the
-  chord for up to 1.5 seconds after the final matched key is released.
+  chord for up to 3 seconds after the final matched key is released.
 - Use a compact outlined keycap row at the bottom center of the focused screen.
   Keep the description in the same pill, omit it for modifier-only prefixes,
   and never show dispatcher arguments or command results.

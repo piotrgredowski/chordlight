@@ -6,7 +6,7 @@ var CATEGORIES = [
 ]
 var MODIFIERS = ["SUPER", "SHIFT", "CTRL", "ALT"]
 var PROTOCOL_PREFIX = "chordlight:v1:"
-var HINT_LINGER_MS = 1500
+var HINT_LINGER_MS = 3000
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -118,11 +118,6 @@ function allowedModifierMask(mask) {
 function parseProtocol(payload, catalog) {
   if (typeof payload !== "string" || payload.indexOf(PROTOCOL_PREFIX) !== 0)
     return { ok: false, error: "wrong-prefix" }
-
-  // Retain the original Super events during the transition so an older bridge
-  // cannot leave the service without a guide lifecycle.
-  if (payload === PROTOCOL_PREFIX + "super:down") return { ok: true, type: "guide", phase: "down", root: "SUPER" }
-  if (payload === PROTOCOL_PREFIX + "super:up") return { ok: true, type: "guide", phase: "up", root: "SUPER" }
 
   var guideDown = payload.match(/^chordlight:v1:guide:down:(SUPER|SHIFT|CTRL|ALT)$/)
   if (guideDown) return { ok: true, type: "guide", phase: "down", root: guideDown[1] }

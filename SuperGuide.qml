@@ -227,7 +227,7 @@ Item {
                 text: root.hintDescription
                 color: Color.foreground
                 font.family: Style.font.family
-                font.pixelSize: Style.font.body
+                font.pixelSize: root.keyFontSize * 0.8
                 font.weight: Font.Medium
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter

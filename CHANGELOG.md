@@ -6,7 +6,7 @@
   IPC, layer-shell, and runtime-state identities. See `docs/BRANDING.md` for
   the clean switch from the separate Omakeez marketplace plugin.
 - Registered shortcut descriptions now appear beside the chord after its key
-  is released, for up to 1.5 seconds.
+  is released, for up to 3 seconds, in text sized closer to the key labels.
 - Replaced the shortcut canopy with a compact, bottom-centered outlined chord
   hint. It appears after the configured delay only when held modifiers match a
   registered shortcut, and expands to a chord while its shortcut key is held.

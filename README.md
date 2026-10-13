@@ -39,7 +39,7 @@ Hold `SUPER`, `SHIFT`, `CTRL`, or `ALT` to open a guide for shortcuts beginning
 with that key. After the configured delay, Chordlight shows the held modifier
 when it prefixes a registered shortcut. While a matching shortcut key is held,
 the hint shows its complete chord, such as `SUPER + SPACE`. When that key is
-released, its registered description appears beside the chord for 1.5 seconds.
+released, its registered description appears beside the chord for 3 seconds.
 Unmatched keys are not shown. The outlined hint sits at the bottom of the
 focused monitor.
 

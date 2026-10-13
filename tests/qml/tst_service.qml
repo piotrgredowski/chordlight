@@ -62,7 +62,6 @@ TestCase {
 
   function test_everyValidProtocolForm() {
     var catalog = Model.normalizeCatalog(validCatalog()).catalog
-    compare(Model.parseProtocol("chordlight:v1:super:down", catalog).root, "SUPER")
     compare(Model.parseProtocol("chordlight:v1:guide:down:ALT", catalog).root, "ALT")
     compare(Model.parseProtocol("chordlight:v1:guide:up", catalog).phase, "up")
     compare(Model.parseProtocol("chordlight:v1:mods:SUPER_SHIFT_CTRL_ALT", catalog).modifiers, "SUPER_SHIFT_CTRL_ALT")
@@ -86,6 +85,8 @@ TestCase {
 
   function test_protocolRejectsMalformedAndUnknownForms() {
     var catalog = Model.normalizeCatalog(validCatalog()).catalog
+    verify(!Model.parseProtocol("chordlight:v1:super:down", catalog).ok)
+    verify(!Model.parseProtocol("chordlight:v1:super:up", catalog).ok)
     verify(!Model.parseProtocol("chordlight:v2:super:down", catalog).ok)
     verify(!Model.parseProtocol("chordlight:v1:super:down:extra", catalog).ok)
     verify(!Model.parseProtocol("chordlight:v1:guide:down:CAPS", catalog).ok)
@@ -146,7 +147,7 @@ TestCase {
     compare(state.activeIds.length, 0)
     compare(state.lingeringId, second)
     compare(state.lingerAction, "start")
-    compare(Model.HINT_LINGER_MS, 1500)
+    compare(Model.HINT_LINGER_MS, 3000)
 
     state = Model.updatedHintState(state.activeIds, state.lingeringId, second, "up")
     compare(state.lingeringId, second)
