@@ -22,7 +22,7 @@ function comboParts(combo) {
   return result
 }
 
-function hintBinding(catalog, activeIds, lingeringId) {
+function hintBinding(catalog, activeIds, recentEntries) {
   var byId = catalog && catalog.byId ? catalog.byId : null
   if (!byId) return null
 
@@ -32,12 +32,84 @@ function hintBinding(catalog, activeIds, lingeringId) {
       ? binding : null
   }
 
+  var active = activeHintBinding(catalog, activeIds)
+  if (active) return active
+
+  var recent = Array.isArray(recentEntries) ? recentEntries : []
+  for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
+    var recentBinding = eligibleBinding(recent[recentIndex] && recent[recentIndex].id)
+    if (recentBinding) return recentBinding
+  }
+  return null
+}
+
+function activeHintBinding(catalog, activeIds) {
+  var byId = catalog && catalog.byId ? catalog.byId : null
+  if (!byId) return null
+
   var ids = Array.isArray(activeIds) ? activeIds : []
   for (var i = ids.length - 1; i >= 0; i--) {
-    var active = eligibleBinding(ids[i])
-    if (active) return active
+    var binding = byId[String(ids[i] || "")]
+    if (binding && binding.trackable === true && binding.guideEligible === true) return binding
   }
-  return eligibleBinding(lingeringId)
+  return null
+}
+
+function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix) {
+  var byId = catalog && catalog.byId ? catalog.byId : null
+  var rows = []
+  if (!byId) return rows
+
+  function eligibleBinding(id) {
+    var binding = byId[String(id || "")]
+    return binding && binding.trackable === true && binding.guideEligible === true
+      ? binding : null
+  }
+
+  var activeBinding = activeHintBinding(catalog, activeIds)
+  var prefixBinding = !activeBinding && showPrefix === true
+    && hasMatchingPrefix(catalog, mask, guideRoot)
+
+  var recent = Array.isArray(recentEntries) ? recentEntries : []
+  var historyLimit = Math.max(0, 3 - (activeBinding || prefixBinding ? 1 : 0))
+  var recentCount = Math.min(recent.length, historyLimit)
+  for (var historyIndex = recentCount - 1; historyIndex >= 0; historyIndex--) {
+    var entry = recent[historyIndex]
+    var binding = eligibleBinding(entry && entry.id)
+    if (!binding) continue
+    rows.push({
+      key: "history:" + String(entry.sequence) + ":" + binding.id,
+      binding: binding,
+      combo: displayCombo(binding),
+      description: displayDescription(binding),
+      active: false
+    })
+  }
+
+  if (activeBinding) {
+    rows.push({
+      key: "active:" + activeBinding.id,
+      binding: activeBinding,
+      combo: displayCombo(activeBinding),
+      description: displayDescription(activeBinding),
+      active: true
+    })
+  } else if (prefixBinding) {
+    rows.push({
+      key: "prefix:" + String(mask || guideRoot || ""),
+      binding: null,
+      combo: String(mask || guideRoot || "").split("_").join(" + "),
+      description: "",
+      active: false
+    })
+  }
+
+  var opacityByDepth = [1, 0.72, 0.45]
+  for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    var depth = rows.length - rowIndex - 1
+    rows[rowIndex].opacity = opacityByDepth[Math.min(depth, opacityByDepth.length - 1)]
+  }
+  return rows
 }
 
 function displayDescription(binding) {

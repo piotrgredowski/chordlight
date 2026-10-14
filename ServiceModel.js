@@ -6,7 +6,8 @@ var CATEGORIES = [
 ]
 var MODIFIERS = ["SUPER", "SHIFT", "CTRL", "ALT"]
 var PROTOCOL_PREFIX = "chordlight:v1:"
-var HINT_LINGER_MS = 3000
+var HINT_HISTORY_MS = 3000
+var MAX_HINT_ROWS = 3
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -177,28 +178,46 @@ function updatedHintIds(ids, id, phase) {
   return next
 }
 
-function updatedHintState(ids, lingeringId, id, phase) {
+function prunedHintHistory(entries, now, activeIds, prefixRowVisible) {
+  var timestamp = Number(now)
+  if (!isFinite(timestamp)) return []
+
+  var source = Array.isArray(entries) ? entries : []
+  var next = []
+  for (var i = 0; i < source.length; i++) {
+    var entry = source[i]
+    if (!isObject(entry) || !validId(entry.id)) continue
+    var expiresAt = Number(entry.expiresAt)
+    var sequence = Number(entry.sequence)
+    if (!isFinite(expiresAt) || expiresAt <= timestamp || !isFinite(sequence)) continue
+    next.push({ id: entry.id, expiresAt: expiresAt, sequence: sequence })
+  }
+
+  var activeCount = Array.isArray(activeIds) ? activeIds.length : 0
+  var currentRowVisible = activeCount > 0 || prefixRowVisible === true
+  var historyLimit = Math.max(0, MAX_HINT_ROWS - (currentRowVisible ? 1 : 0))
+  return next.slice(0, historyLimit)
+}
+
+function updatedHintState(ids, entries, id, phase, now, sequence, prefixRowVisible) {
   var current = Array.isArray(ids) ? ids.slice() : []
   var bindingId = String(id || "")
   var wasActive = bindingId !== "" && current.indexOf(bindingId) !== -1
   var next = updatedHintIds(current, bindingId, phase)
-  var nextLingeringId = String(lingeringId || "")
-  var lingerAction = "keep"
+  var timestamp = Number(now)
+  var history = prunedHintHistory(entries, timestamp, next, prefixRowVisible)
+  var added = phase === "up" && wasActive && validId(bindingId)
 
-  if (phase === "down") {
-    nextLingeringId = ""
-    lingerAction = "clear"
-  } else if (phase === "up" && wasActive) {
-    if (next.length === 0) {
-      nextLingeringId = bindingId
-      lingerAction = "start"
-    } else {
-      nextLingeringId = ""
-      lingerAction = "clear"
-    }
+  if (added && isFinite(timestamp) && isFinite(Number(sequence))) {
+    history.unshift({
+      id: bindingId,
+      expiresAt: timestamp + HINT_HISTORY_MS,
+      sequence: Number(sequence)
+    })
+    history = prunedHintHistory(history, timestamp, next, prefixRowVisible)
   }
 
-  return { activeIds: next, lingeringId: nextLingeringId, lingerAction: lingerAction }
+  return { activeIds: next, history: history, added: added && isFinite(timestamp) }
 }
 
 function mayTrackHint(guideVisible, awaitingLockCheck, guideRoot) {

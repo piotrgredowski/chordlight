@@ -19,7 +19,9 @@ Item {
   property string activeModifiers: ""
   property string activeGuideRoot: ""
   property var activeHintIds: []
-  property string lingeringHintId: ""
+  property var recentHintEntries: []
+  property int hintSequence: 0
+  property bool prefixRowVisible: false
   property int guideDelayMs: 0
   property bool showInFullscreen: false
   property bool guideSuperEnabled: true
@@ -107,11 +109,11 @@ Item {
     lastProtocolError = ""
     if (parsed.type === "guide") {
       if (parsed.phase === "down") {
-        root.cancelHintLinger()
         if (!root.guideRootEnabled(parsed.root)) {
           root.clearGuide()
           return true
         }
+        root.endGuide()
         pendingGuideReceivedMs = Date.now()
         activeGuideRoot = parsed.root
         activeModifiers = parsed.root
@@ -120,7 +122,7 @@ Item {
         guideAwaitingLockCheck = true
         root.requestLockStatus(true)
       } else {
-        root.clearGuide(true)
+        root.endGuide()
       }
       return true
     }
@@ -128,7 +130,6 @@ Item {
       if (guideVisible || guideAwaitingLockCheck) {
         if (activeModifiers !== parsed.modifiers) {
           activeHintIds = []
-          root.cancelHintLinger()
         }
         activeModifiers = parsed.modifiers
       }
@@ -147,40 +148,71 @@ Item {
         return false
       }
       // A fast chord can arrive while lock/polkit state is still being
-      // checked. Keep only its opaque ID pending; clearGuide() discards it if
-      // the fail-closed eligibility check rejects the guide.
+      // checked. Keep its opaque ID pending; clearGuide() discards it if the
+      // fail-closed eligibility check rejects the guide.
       if (!Model.mayTrackHint(guideVisible, guideAwaitingLockCheck, activeGuideRoot)) return true
-      var hintState = Model.updatedHintState(activeHintIds, lingeringHintId, parsed.id, parsed.phase)
-      if (hintState.lingerAction === "clear") root.cancelHintLinger()
+      var isCompletion = parsed.phase === "up" && activeHintIds.indexOf(parsed.id) !== -1
+      var nextSequence = hintSequence + (isCompletion ? 1 : 0)
+      var hintState = Model.updatedHintState(
+        activeHintIds, recentHintEntries, parsed.id, parsed.phase, Date.now(), nextSequence,
+        prefixRowVisible)
       activeHintIds = hintState.activeIds
-      if (hintState.lingerAction === "start") root.startHintLinger(hintState.lingeringId)
+      recentHintEntries = hintState.history
+      if (hintState.added) hintSequence = nextSequence
+      root.scheduleHintHistoryExpiry()
       return true
     }
     return false
   }
 
-  function cancelHintLinger() {
-    hintLingerTimer.stop()
-    lingeringHintId = ""
+  function clearHintHistory() {
+    hintHistoryTimer.stop()
+    recentHintEntries = []
+    hintSequence = 0
+    prefixRowVisible = false
   }
 
-  function startHintLinger(id) {
-    var binding = root.bindingForId(id)
-    if (guideDelayMs < 0 || !binding || binding.trackable !== true || binding.guideEligible !== true) {
-      root.cancelHintLinger()
-      return false
-    }
-    lingeringHintId = String(id)
-    hintLingerTimer.interval = Model.HINT_LINGER_MS
-    hintLingerTimer.restart()
+  function setPrefixRowVisible(visible) {
+    var next = visible === true
+    if (prefixRowVisible === next) return false
+    prefixRowVisible = next
+    recentHintEntries = Model.prunedHintHistory(
+      recentHintEntries, Date.now(), activeHintIds, prefixRowVisible)
+    if (recentHintEntries.length === 0) hintSequence = 0
+    root.scheduleHintHistoryExpiry()
     return true
   }
 
+  function scheduleHintHistoryExpiry() {
+    hintHistoryTimer.stop()
+    if (!Array.isArray(recentHintEntries) || recentHintEntries.length === 0) return
+
+    var now = Date.now()
+    var nextExpiry = Number.POSITIVE_INFINITY
+    for (var i = 0; i < recentHintEntries.length; i++) {
+      var expiresAt = Number(recentHintEntries[i].expiresAt)
+      if (isFinite(expiresAt) && expiresAt < nextExpiry) nextExpiry = expiresAt
+    }
+    if (!isFinite(nextExpiry)) {
+      root.clearHintHistory()
+      return
+    }
+    hintHistoryTimer.interval = Math.max(1, Math.ceil(nextExpiry - now))
+    hintHistoryTimer.start()
+  }
+
+  function expireHintHistory() {
+    recentHintEntries = Model.prunedHintHistory(
+      recentHintEntries, Date.now(), activeHintIds, prefixRowVisible)
+    if (recentHintEntries.length === 0) hintSequence = 0
+    root.scheduleHintHistoryExpiry()
+  }
+
   Timer {
-    id: hintLingerTimer
-    interval: Model.HINT_LINGER_MS
+    id: hintHistoryTimer
+    interval: Model.HINT_HISTORY_MS
     repeat: false
-    onTriggered: root.lingeringHintId = ""
+    onTriggered: root.expireHintHistory()
   }
 
   function recordGuideVisible() {
@@ -215,7 +247,7 @@ Item {
 
   function loadCatalog(raw) {
     var result = Model.normalizeCatalog(raw)
-    root.cancelHintLinger()
+    root.clearHintHistory()
     if (!result.ok) {
       catalog = null
       catalogState = "error"
@@ -229,16 +261,8 @@ Item {
     return true
   }
 
-  function bindingForId(id) {
-    var key = String(id || "")
-    return catalog && catalog.byId ? (catalog.byId[key] || null) : null
-  }
-
   function openGuide() { guideVisible = true }
-  function closeGuide() {
-    root.cancelHintLinger()
-    guideVisible = false
-  }
+  function closeGuide() { clearGuide() }
 
   function settingsEntry() {
     return Model.settingsFor(shell ? shell.barConfig : null, root.moduleName)
@@ -307,19 +331,25 @@ Item {
     return persistSettings(changes)
   }
 
-  function clearGuide(preserveLinger) {
-    if (preserveLinger !== true) root.cancelHintLinger()
+  function endGuide() {
     guideVisible = false
     guideAwaitingLockCheck = false
     activeModifiers = ""
     activeGuideRoot = ""
     activeHintIds = []
+    prefixRowVisible = false
     pendingGuideReceivedMs = 0
+    root.expireHintHistory()
+  }
+
+  function clearGuide() {
+    root.clearHintHistory()
+    root.endGuide()
   }
 
   function suppressGuide() {
     if (guideVisible || guideAwaitingLockCheck) clearGuide()
-    else root.cancelHintLinger()
+    else root.clearHintHistory()
   }
 
   function evaluatePendingGuide() {
@@ -606,7 +636,7 @@ Item {
       if (publicationPending) root.completeCatalogPublication(loaded)
     }
     onLoadFailed: {
-      root.cancelHintLinger()
+      root.clearHintHistory()
       root.catalog = null
       root.catalogState = "error"
       root.activeHintIds = []

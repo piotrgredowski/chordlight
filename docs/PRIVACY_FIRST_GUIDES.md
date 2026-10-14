@@ -22,16 +22,18 @@ in [bridge.lua](../bridge.lua) for the complete boundary.
 
 ## Data minimization
 
-The release stores no activity history and has no policy file:
+The release persists no activity history and has no policy file:
 
 - no raw key logs, typed text, passwords, or command arguments;
-- no per-binding counts, timestamps, or any other usage history;
+- no per-binding counts or long-term use records;
 - no activity-data files or unused full-screen browser; and
 - no network telemetry.
 
-Only the regenerated catalog/bridge lookup and controller safety files remain.
-They describe registered shortcuts and config transactions; they do not record
-how the user uses their keyboard.
+Only the regenerated catalog/bridge lookup and controller safety files remain
+on disk. They describe registered shortcuts and config transactions; they do
+not record how the user uses their keyboard. For display only, the shell may
+keep opaque IDs and expiry/order metadata for recently released chords in
+memory for up to 3 seconds; this short buffer is never persisted.
 
 ## Future direction
 

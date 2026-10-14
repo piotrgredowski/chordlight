@@ -38,10 +38,15 @@ target.
 Hold `SUPER`, `SHIFT`, `CTRL`, or `ALT` to open a guide for shortcuts beginning
 with that key. After the configured delay, Chordlight shows the held modifier
 when it prefixes a registered shortcut. While a matching shortcut key is held,
-the hint shows its complete chord, such as `SUPER + SPACE`. When that key is
-released, its registered description appears beside the chord for 3 seconds.
-Unmatched keys are not shown. The outlined hint sits at the bottom of the
-focused monitor.
+the bottom hint shows its complete chord, such as `SUPER + SPACE`. After
+release, the chord and its registered description remain in a short visual
+history for up to 3 seconds. The
+guide stacks up to three pills from oldest at the top to newest at the bottom;
+a currently held chord or matching modifier prefix occupies the bottom row. A
+new prefix appears after the configured guide delay while existing history
+stays visible. If the current row needs a slot, the oldest history entry is
+dropped. Unmatched keys are not shown. The outlined hints sit at the bottom of
+the focused monitor.
 
 The panel lets you:
 
@@ -55,7 +60,9 @@ underlying shortcut.
 ## Privacy and local files
 
 Chordlight does not record or transmit what you type or do. It has no network
-client, does not use `/dev/input`, and keeps no shortcut-use history.
+client, does not use `/dev/input`, and does not persist shortcut-use history.
+The guide keeps only a brief, in-memory visual chord history so released
+shortcuts can remain on screen for up to 3 seconds.
 
 Its fresh, independent runtime state lives here:
 

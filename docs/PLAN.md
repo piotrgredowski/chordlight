@@ -9,7 +9,7 @@ License: MIT
 
 ## 1. Product definition
 
-Chordlight is a local-first Omarchy shell plugin that helps a user discover and learn their registered Hyprland keyboard shortcuts. Its compact outlined pill appears near the bottom of the focused monitor when a configured modifier matches a registered shortcut. It shows the chord while its key is held, then briefly shows the catalog description after release. Usage history and dispatch-result inference are outside the current product boundary.
+Chordlight is a local-first Omarchy shell plugin that helps a user discover and learn their registered Hyprland keyboard shortcuts. Its compact outlined pill appears near the bottom of the focused monitor when a configured modifier matches a registered shortcut. It shows the chord while its key is held, then briefly keeps the released chord in a visual history. Persistent usage history and dispatch-result inference are outside the current product boundary.
 
 The plugin must be useful immediately after normal Omarchy installation in browse-only mode. Tracking and the Super Guide require one explicit consent click. That click performs the required Hyprland Lua config integration automatically; the user does not manually edit a file in the normal path.
 
@@ -388,15 +388,27 @@ Required behavior:
   this hint-only UI.
 - After the configured delay, show the held modifier mask only if it prefixes
   at least one trackable, guide-eligible shortcut.
-- While a matching shortcut key is held, show its complete chord. On release,
-  restore another still-held match or show its catalog description beside the
-  chord for up to 3 seconds after the final matched key is released.
+- While a matching shortcut key is held, show its complete chord in the bottom
+  row. When there is no active chord, show the eligible held modifier prefix
+  in that row only after the configured guide delay.
+- Keep each completed chord in memory for up to 3 seconds, including after all
+  modifiers are released and across a later guide start. Keep up to three
+  visible rows total, ordered oldest-to-newest from top to bottom, with the
+  active chord or eligible prefix at the bottom when present. A current row
+  reserves one slot and permanently drops the oldest history entry if needed.
+- Expire each history entry independently. Suppression, catalog reload, and
+  explicit clear remove the visual history.
 - Use a compact outlined keycap row at the bottom center of the focused screen.
-  Keep the description in the same pill, omit it for modifier-only prefixes,
-  and never show dispatcher arguments or command results.
+  Show the registered description beside matched chords, omit it for
+  modifier-only prefixes, and never show dispatcher arguments or command
+  results.
 - No keyboard focus, empty pointer mask, and `ExclusionMode.Ignore`.
 - Preserve lock, credential-prompt, fullscreen, integration, and guide-root
   suppression behavior.
+
+Follow-up investigation: determine whether rows seem to disappear from the
+bottom upward during normal expiry. The ordering of the fade-out was reported
+as uncertain and is not changed by this short-history work.
 
 ## 9. Bar panel and full overlay
 

@@ -67,24 +67,70 @@ TestCase {
     compare(GuideModel.displayCombo(coded), "SUPER + KEY 20")
   }
 
-  function test_hintDescriptionUsesActiveThenLingeringRegisteredBinding() {
+  function test_hintDescriptionUsesActiveThenRecentRegisteredBinding() {
     var source = catalog()
     var first = source.bindings[0]
     var second = source.bindings[1]
-    var current = GuideModel.hintBinding(source, [first.id, second.id], first.id)
+    var history = [{ id: first.id, sequence: 1, expiresAt: 3000 }]
+    var current = GuideModel.hintBinding(source, [first.id, second.id], history)
     compare(current.id, second.id)
     compare(GuideModel.displayDescription(current), "Command 2")
 
-    var lingering = GuideModel.hintBinding(source, [], first.id)
-    compare(lingering.id, first.id)
-    compare(GuideModel.displayDescription(lingering), "Command 1")
-    verify(GuideModel.hintBinding(source, [], "") === null)
-    verify(GuideModel.hintBinding(source, [source.bindings[2].id], "") === null)
+    var recent = GuideModel.hintBinding(source, [], history)
+    compare(recent.id, first.id)
+    compare(GuideModel.displayDescription(recent), "Command 1")
+    verify(GuideModel.hintBinding(source, [], []) === null)
+    verify(GuideModel.hintBinding(source, [source.bindings[2].id], []) === null)
 
     var blank = binding(6, ["SUPER"])
     blank.description = "  "
     source.byId[blank.id] = blank
-    compare(GuideModel.displayDescription(GuideModel.hintBinding(source, [], blank.id)), "")
+    compare(GuideModel.displayDescription(GuideModel.hintBinding(source, [], [
+      { id: blank.id, sequence: 2, expiresAt: 3000 }
+    ])), "")
+  }
+
+  function test_shortHistoryStacksOldestToNewestAboveCurrentRow() {
+    var source = catalog()
+    var right = binding(6, ["SUPER", "SHIFT"])
+    right.key = "RIGHT"
+    right.combo = "SUPER + SHIFT + RIGHT"
+    var left = binding(7, ["SUPER", "SHIFT"])
+    left.key = "LEFT"
+    left.combo = "SUPER + SHIFT + LEFT"
+    source.bindings.push(right, left)
+    source.byId[right.id] = right
+    source.byId[left.id] = left
+
+    // Newest first internally: RIGHT, LEFT, RIGHT.
+    var history = [
+      { id: right.id, sequence: 3, expiresAt: 5000 },
+      { id: left.id, sequence: 2, expiresAt: 4500 },
+      { id: right.id, sequence: 1, expiresAt: 4000 }
+    ]
+    var rows = GuideModel.hintRows(source, [], history, "SUPER_SHIFT", "SUPER", true)
+    compare(rows.length, 3)
+    compare(rows[0].combo, "SUPER + SHIFT + LEFT")
+    compare(rows[1].combo, "SUPER + SHIFT + RIGHT")
+    compare(rows[2].combo, "SUPER + SHIFT")
+    compare(rows[0].opacity, 0.45)
+    compare(rows[1].opacity, 0.72)
+    compare(rows[2].opacity, 1)
+
+    var afterGuideEnd = GuideModel.hintRows(
+      source, [], history, "SUPER_SHIFT", "SUPER", false)
+    compare(afterGuideEnd.length, 3)
+    compare(afterGuideEnd[0].combo, "SUPER + SHIFT + RIGHT")
+    compare(afterGuideEnd[1].combo, "SUPER + SHIFT + LEFT")
+    compare(afterGuideEnd[2].combo, "SUPER + SHIFT + RIGHT")
+
+    var activeRows = GuideModel.hintRows(
+      source, [right.id], history, "SUPER_SHIFT", "SUPER", true)
+    compare(activeRows.length, 3)
+    compare(activeRows[0].combo, "SUPER + SHIFT + LEFT")
+    compare(activeRows[1].combo, "SUPER + SHIFT + RIGHT")
+    compare(activeRows[2].combo, "SUPER + SHIFT + RIGHT")
+    compare(activeRows[2].active, true)
   }
 
   function test_suppressionAndDelayModes() {
