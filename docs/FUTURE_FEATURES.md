@@ -21,3 +21,11 @@ Original colleague feedback (Polish):
 ## Panel usability and display controls
 
 Improve the settings panel shown in the screenshot so it is clearer and easier to use. Add a configurable duration for how long a chord or history hint stays visible before it disappears. Consider surfacing the guide position, description display, and size controls above in the panel, along with other useful guide options identified during the redesign.
+
+### Settings storage requirement
+
+Persist all real Chordlight settings in TOML, including display position, description mode, size, stack spacing, history count, duration, and history transparency. The current panel preview may keep temporary local values until those controls are wired. Keep tuning options such as guide delay, enabled guide keys, fullscreen behavior, and debug tracing in TOML rather than adding them to the status panel.
+
+## App-specific custom shortcuts
+
+Let users register custom shortcuts for specific applications and show each application's shortcut hints only while that application is focused.

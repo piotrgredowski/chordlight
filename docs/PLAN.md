@@ -372,7 +372,7 @@ function recommendations(limit)
 
 Listen to `Quickshell.Hyprland.Hyprland.rawEvent`. Accept only `custom` events beginning with `chordlight:v1:`. Never evaluate payload content as code.
 
-The service reads bar settings from the plugin’s entry in `shell.shellConfig.bar.layout` and updates them through `shell.updateEntryInline`. Do not create a second preferences file.
+The current service reads bar settings from the plugin’s entry in `shell.shellConfig.bar.layout` and updates them through `shell.updateEntryInline`. For the planned display settings, the user's explicit requirement is TOML persistence. Before wiring those values, verify that this API writes to the requested TOML config; if it does not, revise this storage plan rather than silently storing the settings elsewhere.
 
 The bar widget accesses the singleton through `bar.shell.serviceFor(moduleName)`. `Overlay.qml` declares `property var service`; Omarchy injects the matching service automatically.
 
