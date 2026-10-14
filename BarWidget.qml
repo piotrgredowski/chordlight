@@ -11,6 +11,7 @@ BarWidget {
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property string statusMark: !service || service.integrationState === "disabled"
     ? " ·" : service.integrationState === "error" ? " !" : service.integrationState === "disconnected" ? " ?" : ""
+  readonly property string statusGlyph: statusMark.trim()
   readonly property string tooltipSummary: service && service.integrationState === "enabled"
     ? "Chordlight keyboard shortcuts enabled"
     : service && service.integrationState === "disconnected"
@@ -76,10 +77,34 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰌌" + root.statusMark
+    text: ""
+    hasVisualContent: true
+    labelVisible: false
+    fixedWidth: root.statusGlyph.length > 0 ? 35 : 26
     tooltipText: root.tooltipSummary
     fontSize: Style.font.body
-    labelVisible: true
+
+    ChordCompactPillMark {
+      x: (26 - width * scale) / 2
+      y: (parent.height - height * scale) / 2
+      transformOrigin: Item.TopLeft
+      scale: 0.92
+      iconColor: button.foreground
+      enabled: false
+    }
+
+    Text {
+      visible: root.statusGlyph.length > 0
+      x: 26
+      width: 8
+      height: parent.height
+      text: root.statusGlyph
+      color: button.foreground
+      font.family: button.fontFamily
+      font.pixelSize: Math.max(8, button.fontSize * 0.75)
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+    }
     onPressed: function(button) {
       if (button === Qt.LeftButton) root.toggle()
     }
