@@ -98,7 +98,7 @@ Item {
   function syncVisibility() {
     var mode = GuideModel.delayMode(service && service.guideVisible === true, delayValue)
     if (!eligible || delayValue < 0 || mode === "disabled") {
-      if (service && service.clearHintHistory) service.clearHintHistory()
+      if (service && service.clearGuide) service.clearGuide()
       hideGuide()
       return
     }
@@ -120,11 +120,6 @@ Item {
   function hideGuide() {
     guideDelayTimer.stop()
     delayedVisible = false
-  }
-
-  function syncPrefixReservation() {
-    if (service && service.setPrefixRowVisible)
-      service.setPrefixRowVisible(showPrefixRow)
   }
 
   Timer {
@@ -154,12 +149,7 @@ Item {
     function onFocusedMonitorChanged() { root.focusRevision += 1 }
   }
 
-  onShowPrefixRowChanged: syncPrefixReservation()
-
-  Component.onCompleted: {
-    syncVisibility()
-    syncPrefixReservation()
-  }
+  Component.onCompleted: syncVisibility()
 
   Variants {
     model: Quickshell.screens

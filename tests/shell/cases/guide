@@ -5,12 +5,14 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 env -u DISPLAY QT_QPA_PLATFORM=minimal QT_QPA_PLATFORMTHEME= \
   qmltestrunner -input "$root/tests/qml/tst_guide.qml" -o -,txt
 grep -q 'GuideModel.hasMatchingPrefix' "$root/SuperGuide.qml"
-grep -q 'onShowPrefixRowChanged: syncPrefixReservation()' "$root/SuperGuide.qml"
-grep -q 'service.setPrefixRowVisible(showPrefixRow)' "$root/SuperGuide.qml"
 grep -q 'function endGuide()' "$root/Service.qml"
 grep -q 'root.endGuide()' "$root/Service.qml"
 grep -q 'function clearGuide()' "$root/Service.qml"
-grep -q 'root.clearHintHistory()' "$root/Service.qml"
+grep -q 'GuideState.transition' "$root/Service.qml"
+if rg -q 'setPrefixRowVisible|prefixRowVisible|clearHintHistory' "$root/Service.qml" "$root/SuperGuide.qml"; then
+  echo "presentation changes must not mutate guide history state" >&2
+  exit 1
+fi
 grep -q 'anchors { bottom: true; left: true; right: true }' "$root/SuperGuide.qml"
 grep -q 'mask: Region {}' "$root/SuperGuide.qml"
 grep -q 'text: String(modelData || "").toUpperCase()' "$root/SuperGuide.qml"

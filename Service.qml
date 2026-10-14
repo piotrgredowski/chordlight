@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "ServiceModel.js" as Model
+import "GuideState.js" as GuideState
 
 Item {
   id: root
@@ -15,13 +16,13 @@ Item {
   property bool integrationStateKnown: false
   property var integrationDetails: ({})
   property var catalog: null
-  property bool guideVisible: false
-  property string activeModifiers: ""
-  property string activeGuideRoot: ""
-  property var activeHintIds: []
-  property var recentHintEntries: []
-  property int hintSequence: 0
-  property bool prefixRowVisible: false
+  property var guideState: GuideState.initialState()
+  readonly property bool guideVisible: guideState.phase === GuideState.PHASE_ACTIVE
+  readonly property bool guideAwaitingLockCheck: guideState.phase === GuideState.PHASE_CHECKING
+  readonly property string activeModifiers: String(guideState.modifiers || "")
+  readonly property string activeGuideRoot: String(guideState.root || "")
+  readonly property var activeHintIds: guideState.pendingIds
+  readonly property var recentHintEntries: guideState.history
   property int guideDelayMs: 0
   property bool showInFullscreen: false
   property bool guideSuperEnabled: true
@@ -35,7 +36,6 @@ Item {
   property bool credentialPromptActive: true
   property bool credentialPromptStateKnown: false
   property bool activeWindowFullscreen: false
-  property bool guideAwaitingLockCheck: false
   property bool lockStatusRefreshPending: false
   property bool lockStatusTimedOut: false
   property bool layerStatusTimedOut: false
@@ -97,6 +97,11 @@ Item {
     sessionDiagnostics = next
   }
 
+  function transitionGuide(event) {
+    guideState = GuideState.transition(guideState, event)
+    root.scheduleHintHistoryExpiry()
+  }
+
   function handleProtocolEvent(payload) {
     bridgeEventCount += 1
     observedEventCount += 1
@@ -113,13 +118,8 @@ Item {
           root.clearGuide()
           return true
         }
-        root.endGuide()
         pendingGuideReceivedMs = Date.now()
-        activeGuideRoot = parsed.root
-        activeModifiers = parsed.root
-        activeHintIds = []
-        guideVisible = false
-        guideAwaitingLockCheck = true
+        root.transitionGuide({ type: "sessionStarted", root: parsed.root })
         root.requestLockStatus(true)
       } else {
         root.endGuide()
@@ -127,12 +127,8 @@ Item {
       return true
     }
     if (parsed.type === "mods") {
-      if (guideVisible || guideAwaitingLockCheck) {
-        if (activeModifiers !== parsed.modifiers) {
-          activeHintIds = []
-        }
-        activeModifiers = parsed.modifiers
-      }
+      if (guideVisible || guideAwaitingLockCheck)
+        root.transitionGuide({ type: "modifiersChanged", modifiers: parsed.modifiers })
       return true
     }
     if (parsed.type === "match") {
@@ -147,70 +143,34 @@ Item {
         lastProtocolError = "unknown-binding-id"
         return false
       }
-      // A fast chord can arrive while lock/polkit state is still being
-      // checked. Keep its opaque ID pending; clearGuide() discards it if the
-      // fail-closed eligibility check rejects the guide.
-      if (!Model.mayTrackHint(guideVisible, guideAwaitingLockCheck, activeGuideRoot)) return true
-      var isCompletion = parsed.phase === "up" && activeHintIds.indexOf(parsed.id) !== -1
-      var nextSequence = hintSequence + (isCompletion ? 1 : 0)
-      var hintState = Model.updatedHintState(
-        activeHintIds, recentHintEntries, parsed.id, parsed.phase, Date.now(), nextSequence,
-        prefixRowVisible)
-      activeHintIds = hintState.activeIds
-      recentHintEntries = hintState.history
-      if (hintState.added) hintSequence = nextSequence
-      root.scheduleHintHistoryExpiry()
+      // The reducer accepts hints while eligibility checks are pending, then
+      // clears them if those checks suppress the guide.
+      root.transitionGuide({
+        type: parsed.phase === "down" ? "hintDown" : "hintUp",
+        id: parsed.id,
+        at: Date.now()
+      })
       return true
     }
     return false
   }
 
-  function clearHintHistory() {
-    hintHistoryTimer.stop()
-    recentHintEntries = []
-    hintSequence = 0
-    prefixRowVisible = false
-  }
-
-  function setPrefixRowVisible(visible) {
-    var next = visible === true
-    if (prefixRowVisible === next) return false
-    prefixRowVisible = next
-    recentHintEntries = Model.prunedHintHistory(
-      recentHintEntries, Date.now(), activeHintIds, prefixRowVisible)
-    if (recentHintEntries.length === 0) hintSequence = 0
-    root.scheduleHintHistoryExpiry()
-    return true
-  }
-
   function scheduleHintHistoryExpiry() {
     hintHistoryTimer.stop()
-    if (!Array.isArray(recentHintEntries) || recentHintEntries.length === 0) return
-
+    var nextExpiry = GuideState.nextExpiryAt(guideState)
+    if (nextExpiry === null) return
     var now = Date.now()
-    var nextExpiry = Number.POSITIVE_INFINITY
-    for (var i = 0; i < recentHintEntries.length; i++) {
-      var expiresAt = Number(recentHintEntries[i].expiresAt)
-      if (isFinite(expiresAt) && expiresAt < nextExpiry) nextExpiry = expiresAt
-    }
-    if (!isFinite(nextExpiry)) {
-      root.clearHintHistory()
-      return
-    }
     hintHistoryTimer.interval = Math.max(1, Math.ceil(nextExpiry - now))
     hintHistoryTimer.start()
   }
 
   function expireHintHistory() {
-    recentHintEntries = Model.prunedHintHistory(
-      recentHintEntries, Date.now(), activeHintIds, prefixRowVisible)
-    if (recentHintEntries.length === 0) hintSequence = 0
-    root.scheduleHintHistoryExpiry()
+    root.transitionGuide({ type: "expire", at: Date.now() })
   }
 
   Timer {
     id: hintHistoryTimer
-    interval: Model.HINT_HISTORY_MS
+    interval: GuideState.HINT_HISTORY_MS
     repeat: false
     onTriggered: root.expireHintHistory()
   }
@@ -247,21 +207,19 @@ Item {
 
   function loadCatalog(raw) {
     var result = Model.normalizeCatalog(raw)
-    root.clearHintHistory()
+    root.clearGuide()
     if (!result.ok) {
       catalog = null
       catalogState = "error"
-      activeHintIds = []
       setDiagnostic("catalogLoadFailures", 1)
       return false
     }
     catalog = result.catalog
     catalogState = "ready"
-    activeHintIds = []
     return true
   }
 
-  function openGuide() { guideVisible = true }
+  function openGuide() { transitionGuide({ type: "sessionOpened" }) }
   function closeGuide() { clearGuide() }
 
   function settingsEntry() {
@@ -276,7 +234,7 @@ Item {
     guideShiftEnabled = Model.normalizeGuideRoot(entry.guideShiftEnabled)
     guideCtrlEnabled = Model.normalizeGuideRoot(entry.guideCtrlEnabled)
     guideAltEnabled = Model.normalizeGuideRoot(entry.guideAltEnabled)
-    if (!guideRootEnabled(activeGuideRoot)) {
+    if (activeGuideRoot !== "" && !guideRootEnabled(activeGuideRoot)) {
       clearGuide()
     }
   }
@@ -332,24 +290,17 @@ Item {
   }
 
   function endGuide() {
-    guideVisible = false
-    guideAwaitingLockCheck = false
-    activeModifiers = ""
-    activeGuideRoot = ""
-    activeHintIds = []
-    prefixRowVisible = false
     pendingGuideReceivedMs = 0
-    root.expireHintHistory()
+    root.transitionGuide({ type: "sessionEnded" })
   }
 
   function clearGuide() {
-    root.clearHintHistory()
-    root.endGuide()
+    pendingGuideReceivedMs = 0
+    root.transitionGuide({ type: "reset" })
   }
 
   function suppressGuide() {
-    if (guideVisible || guideAwaitingLockCheck) clearGuide()
-    else root.clearHintHistory()
+    root.clearGuide()
   }
 
   function evaluatePendingGuide() {
@@ -359,8 +310,7 @@ Item {
       clearGuide()
       return false
     }
-    guideAwaitingLockCheck = false
-    guideVisible = true
+    root.transitionGuide({ type: "sessionActivated" })
     return true
   }
 
@@ -636,10 +586,9 @@ Item {
       if (publicationPending) root.completeCatalogPublication(loaded)
     }
     onLoadFailed: {
-      root.clearHintHistory()
+      root.clearGuide()
       root.catalog = null
       root.catalogState = "error"
-      root.activeHintIds = []
       root.setDiagnostic("catalogLoadFailures", 1)
       if (root.catalogPublicationPending) root.completeCatalogPublication(false)
     }
