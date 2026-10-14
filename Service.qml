@@ -29,6 +29,11 @@ Item {
   property bool guideShiftEnabled: true
   property bool guideCtrlEnabled: true
   property bool guideAltEnabled: true
+  property bool debugModeEnabled: false
+  property var debugTraceQueue: []
+  property string activeDebugTraceEntry: ""
+  property int debugTraceWriteFailures: 0
+  property int debugTraceDroppedEntries: 0
   // Suppression starts active until both independent sources have answered.
   // Unknown state must never briefly expose the guide over a protected surface.
   property bool desktopLocked: true
@@ -46,6 +51,9 @@ Item {
   property string catalogState: "loading"
   property bool catalogPublicationPending: false
   property var pendingCatalogGeneration: null
+  property var pendingCatalogPublicationContext: ({})
+  property var pendingCatalogChangeEvents: []
+  property var activeCatalogGenerationContext: ({})
   property string deferredBridgeReloadSourceHash: ""
   property string activeBridgeReloadSourceHash: ""
   property string pendingBridgeReloadSourceHash: ""
@@ -80,6 +88,8 @@ Item {
 
   readonly property string generatorPath: localPath(Qt.resolvedUrl("scripts/generate-catalog"))
   readonly property string controllerPath: localPath(Qt.resolvedUrl("scripts/bridge-control"))
+  readonly property string debugTraceWriterPath: localPath(Qt.resolvedUrl("scripts/debug-trace"))
+  readonly property string debugTracePath: stateDir + "/debug/trace.jsonl"
   readonly property bool catalogGenerationRunning: catalogGenerationProcess.running
   readonly property bool integrationInspectRunning: integrationInspectProcess.running
   readonly property bool integrationMutationRunning: integrationMutationProcess.running
@@ -97,9 +107,163 @@ Item {
     sessionDiagnostics = next
   }
 
+  function traceBinding(id) {
+    var bindingId = String(id || "")
+    var binding = catalog && catalog.byId ? catalog.byId[bindingId] : null
+    return {
+      id: bindingId,
+      combo: String(binding && binding.combo || "").slice(0, 256)
+    }
+  }
+
+  function traceState(state) {
+    var source = state && typeof state === "object" ? state : GuideState.initialState()
+    var pending = []
+    var pendingIds = Array.isArray(source.pendingIds) ? source.pendingIds : []
+    for (var i = 0; i < pendingIds.length && i < 32; i++)
+      pending.push(traceBinding(pendingIds[i]))
+
+    var history = []
+    var entries = Array.isArray(source.history) ? source.history : []
+    for (var j = 0; j < entries.length && j < 2; j++) {
+      var item = traceBinding(entries[j].id)
+      item.sequence = Number(entries[j].sequence)
+      item.completedAtMs = Number(entries[j].completedAt)
+      item.expiresAtMs = Number(entries[j].expiresAt)
+      history.push(item)
+    }
+    return {
+      phase: String(source.phase || "idle"),
+      root: String(source.root || ""),
+      modifiers: String(source.modifiers || ""),
+      nextSequence: Number(source.nextSequence || 1),
+      pending: pending,
+      history: history
+    }
+  }
+
+  function enqueueDebugTrace(entry) {
+    var queue = debugTraceQueue.slice()
+    if (queue.length >= 512) {
+      queue.shift()
+      debugTraceDroppedEntries += 1
+    }
+    queue.push(JSON.stringify(entry))
+    debugTraceQueue = queue
+    root.startNextDebugTraceWrite()
+    return true
+  }
+
+  function recordDebugTrace(kind, details) {
+    if (!debugModeEnabled) return false
+    var timestamp = Date.now()
+    var entry = {
+      schemaVersion: 1,
+      timestamp: new Date(timestamp).toISOString(),
+      timestampMs: timestamp,
+      kind: String(kind || "")
+    }
+    if (details && typeof details === "object") {
+      for (var key in details) entry[key] = details[key]
+    }
+    return enqueueDebugTrace(entry)
+  }
+
+  function startNextDebugTraceWrite() {
+    if (debugTraceWriterProcess.running || activeDebugTraceEntry !== ""
+        || debugTraceQueue.length === 0 || debugTraceWriterPath === "") return false
+    var queue = debugTraceQueue.slice()
+    activeDebugTraceEntry = queue.shift()
+    debugTraceQueue = queue
+    debugTraceWriterProcess.running = true
+    return true
+  }
+
+  function finishDebugTraceWrite(success) {
+    if (activeDebugTraceEntry === "") return
+    if (success !== true) debugTraceWriteFailures += 1
+    activeDebugTraceEntry = ""
+    Qt.callLater(root.startNextDebugTraceWrite)
+  }
+
+  function recordGuideTransition(event, previous, next) {
+    if (!debugModeEnabled) return
+    var timestamp = Date.now()
+    var input = { type: String(event && event.type || "") }
+    if (event && event.reason) input.reason = String(event.reason).slice(0, 80)
+    if (event && event.root) input.root = String(event.root)
+    if (event && event.modifiers) input.modifiers = String(event.modifiers)
+    if (event && event.id) input.binding = traceBinding(event.id)
+    if (event && event.at !== undefined) input.atMs = Number(event.at)
+    enqueueDebugTrace({
+      schemaVersion: 1,
+      timestamp: new Date(timestamp).toISOString(),
+      timestampMs: timestamp,
+      kind: "guide-transition",
+      input: input,
+      before: traceState(previous),
+      after: traceState(next)
+    })
+  }
+
+  function recordMatchedChord(parsed) {
+    if (!debugModeEnabled) return
+    var timestamp = Date.now()
+    enqueueDebugTrace({
+      schemaVersion: 1,
+      timestamp: new Date(timestamp).toISOString(),
+      timestampMs: timestamp,
+      kind: "matched-chord",
+      phase: String(parsed.phase || ""),
+      binding: traceBinding(parsed.id),
+      state: traceState(guideState)
+    })
+  }
+
+  function recordProtocolIssue(error, type, id, phase) {
+    if (!debugModeEnabled) return
+    var timestamp = Date.now()
+    enqueueDebugTrace({
+      schemaVersion: 1,
+      timestamp: new Date(timestamp).toISOString(),
+      timestampMs: timestamp,
+      kind: "protocol-issue",
+      error: String(error || "").slice(0, 80),
+      type: String(type || "").slice(0, 32),
+      binding: id ? traceBinding(id) : null,
+      phase: String(phase || ""),
+      state: traceState(guideState)
+    })
+  }
+
+  function recordDebugModeChange(enabled) {
+    var timestamp = Date.now()
+    enqueueDebugTrace({
+      schemaVersion: 1,
+      timestamp: new Date(timestamp).toISOString(),
+      timestampMs: timestamp,
+      kind: "debug-mode",
+      enabled: enabled === true,
+      state: traceState(guideState)
+    })
+  }
+
+  function applyDebugModeEnabled(value) {
+    var next = value === true
+    if (next === debugModeEnabled) return false
+    if (debugModeEnabled) recordDebugModeChange(false)
+    debugModeEnabled = next
+    if (debugModeEnabled) recordDebugModeChange(true)
+    return true
+  }
+
   function transitionGuide(event) {
-    guideState = GuideState.transition(guideState, event)
+    var previous = guideState
+    var next = GuideState.transition(previous, event)
+    root.recordGuideTransition(event, previous, next)
+    guideState = next
     root.scheduleHintHistoryExpiry()
+    return next
   }
 
   function handleProtocolEvent(payload) {
@@ -108,6 +272,7 @@ Item {
     var parsed = Model.parseProtocol(payload, root.catalog)
     if (!parsed.ok) {
       lastProtocolError = parsed.error
+      root.recordProtocolIssue(parsed.error, "unknown", "", "")
       return false
     }
 
@@ -115,7 +280,7 @@ Item {
     if (parsed.type === "guide") {
       if (parsed.phase === "down") {
         if (!root.guideRootEnabled(parsed.root)) {
-          root.clearGuide()
+          root.clearGuide("disabled-guide-root-event")
           return true
         }
         pendingGuideReceivedMs = Date.now()
@@ -134,13 +299,16 @@ Item {
     if (parsed.type === "match") {
       if (!parsed.known) {
         lastProtocolError = "unknown-binding-id"
+        root.recordProtocolIssue(lastProtocolError, parsed.type, parsed.id, parsed.phase)
         return false
       }
+      root.recordMatchedChord(parsed)
       return true
     }
     if (parsed.type === "hint") {
       if (!parsed.known) {
         lastProtocolError = "unknown-binding-id"
+        root.recordProtocolIssue(lastProtocolError, parsed.type, parsed.id, parsed.phase)
         return false
       }
       // The reducer accepts hints while eligibility checks are pending, then
@@ -168,6 +336,27 @@ Item {
     root.transitionGuide({ type: "expire", at: Date.now() })
   }
 
+  Process {
+    id: debugTraceWriterProcess
+    command: ["python3", root.debugTraceWriterPath, "--path", root.debugTracePath]
+    running: false
+    stdinEnabled: true
+    stderr: StdioCollector { waitForEnd: true }
+    onStarted: {
+      if (root.activeDebugTraceEntry !== "")
+        debugTraceWriterProcess.write(root.activeDebugTraceEntry + "\n")
+    }
+    onExited: function(exitCode) {
+      root.finishDebugTraceWrite(exitCode === 0)
+    }
+    onRunningChanged: {
+      // FailedToStart emits runningChanged without exited; normal exits run
+      // onExited first, which clears the active entry before this handler.
+      if (!debugTraceWriterProcess.running && root.activeDebugTraceEntry !== "")
+        root.finishDebugTraceWrite(false)
+    }
+  }
+
   Timer {
     id: hintHistoryTimer
     interval: GuideState.HINT_HISTORY_MS
@@ -184,7 +373,7 @@ Item {
   }
 
   function resetDiagnostics() {
-    clearGuide()
+    clearGuide("diagnostics-reset")
     observedEventCount = 0
     bridgeEventCount = 0
     latencySamples = []
@@ -200,27 +389,40 @@ Item {
       guideVisible: guideVisible,
       catalogState: catalogState,
       integrationState: integrationState,
+      debugModeEnabled: debugModeEnabled,
+      debugTracePath: debugTracePath,
+      debugTraceWriteFailures: debugTraceWriteFailures,
+      debugTraceDroppedEntries: debugTraceDroppedEntries,
       lastProtocolError: lastProtocolError,
       sessionDiagnostics: sessionDiagnostics
     })
   }
 
-  function loadCatalog(raw) {
+  function loadCatalog(raw, traceContext) {
     var result = Model.normalizeCatalog(raw)
-    root.clearGuide()
+    var sourceChanged = !result.ok || Model.catalogSourceChanged(catalog, result.catalog)
+    var context = traceContext && typeof traceContext === "object" ? traceContext : ({})
+    root.recordDebugTrace("catalog-load", {
+      source: String(context.source || "file-view"),
+      trigger: String(context.trigger || ""),
+      eventNames: Array.isArray(context.eventNames) ? context.eventNames : [],
+      changed: context.changed === true ? true : context.changed === false ? false : null,
+      sourceChanged: sourceChanged
+    })
+    if (sourceChanged) root.clearGuide("catalog-refresh")
     if (!result.ok) {
       catalog = null
       catalogState = "error"
       setDiagnostic("catalogLoadFailures", 1)
-      return false
+      return { ok: false, sourceChanged: true }
     }
     catalog = result.catalog
     catalogState = "ready"
-    return true
+    return { ok: true, sourceChanged: sourceChanged }
   }
 
   function openGuide() { transitionGuide({ type: "sessionOpened" }) }
-  function closeGuide() { clearGuide() }
+  function closeGuide() { clearGuide("guide-closed") }
 
   function settingsEntry() {
     return Model.settingsFor(shell ? shell.barConfig : null, root.moduleName)
@@ -234,8 +436,9 @@ Item {
     guideShiftEnabled = Model.normalizeGuideRoot(entry.guideShiftEnabled)
     guideCtrlEnabled = Model.normalizeGuideRoot(entry.guideCtrlEnabled)
     guideAltEnabled = Model.normalizeGuideRoot(entry.guideAltEnabled)
+    applyDebugModeEnabled(entry.debugModeEnabled)
     if (activeGuideRoot !== "" && !guideRootEnabled(activeGuideRoot)) {
-      clearGuide()
+      clearGuide("guide-root-disabled-by-setting")
     }
   }
 
@@ -257,6 +460,12 @@ Item {
     if (next === showInFullscreen) return false
     showInFullscreen = next
     return persistSettings({ showInFullscreen: next })
+  }
+
+  function setDebugModeEnabled(value) {
+    var next = value === true
+    if (!applyDebugModeEnabled(next)) return false
+    return persistSettings({ debugModeEnabled: next })
   }
 
   function guideRootEnabled(rootName) {
@@ -282,7 +491,7 @@ Item {
     else if (rootName === "CTRL") guideCtrlEnabled = next
     else guideAltEnabled = next
     if (!next && activeGuideRoot === rootName) {
-      clearGuide()
+      clearGuide("guide-root-disabled")
     }
     var changes = {}
     changes[setting] = next
@@ -291,23 +500,27 @@ Item {
 
   function endGuide() {
     pendingGuideReceivedMs = 0
-    root.transitionGuide({ type: "sessionEnded" })
+    root.transitionGuide({ type: "sessionEnded", reason: "guide-root-released" })
   }
 
-  function clearGuide() {
+  function clearGuide(reason) {
     pendingGuideReceivedMs = 0
-    root.transitionGuide({ type: "reset" })
+    var hasState = guideState.phase !== GuideState.PHASE_IDLE
+      || guideState.pendingIds.length > 0 || guideState.history.length > 0
+    if (!hasState) return false
+    root.transitionGuide({ type: "reset", reason: String(reason || "explicit-clear") })
+    return true
   }
 
-  function suppressGuide() {
-    root.clearGuide()
+  function suppressGuide(reason) {
+    root.clearGuide(reason || "guide-suppressed")
   }
 
   function evaluatePendingGuide() {
     if (!guideAwaitingLockCheck) return false
     if (!lockStateKnown || !credentialPromptStateKnown) return false
     if (desktopLocked || credentialPromptActive) {
-      clearGuide()
+      clearGuide(desktopLocked ? "desktop-locked" : "polkit-prompt-active")
       return false
     }
     root.transitionGuide({ type: "sessionActivated" })
@@ -317,7 +530,7 @@ Item {
   function setLockStateUnknown() {
     lockStateKnown = false
     desktopLocked = true
-    suppressGuide()
+    suppressGuide("lock-state-unknown")
   }
 
   function recordLockStatus(raw, exitCode) {
@@ -329,7 +542,7 @@ Item {
     }
     lockStateKnown = true
     desktopLocked = parsed.locked
-    if (desktopLocked) suppressGuide()
+    if (desktopLocked) suppressGuide("desktop-locked")
     else evaluatePendingGuide()
     return true
   }
@@ -365,7 +578,7 @@ Item {
       credentialPromptStateKnown = false
       credentialPromptActive = true
     }
-    suppressGuide()
+    suppressGuide("polkit-layer-event:" + name)
     requestLayerStatus()
     return true
   }
@@ -380,12 +593,12 @@ Item {
       credentialPromptStateKnown = false
       credentialPromptActive = true
       setDiagnostic("layerQueryFailures", 1)
-      suppressGuide()
+      suppressGuide("polkit-layer-query-failed")
       return false
     }
     credentialPromptStateKnown = true
     credentialPromptActive = parsed.active
-    if (credentialPromptActive) suppressGuide()
+    if (credentialPromptActive) suppressGuide("polkit-prompt-active")
     else evaluatePendingGuide()
     return true
   }
@@ -420,7 +633,7 @@ Item {
       integrationStateKnown = true
       deferredBridgeReloadSourceHash = ""
       pendingBridgeReloadSourceHash = ""
-      clearGuide()
+      clearGuide("integration-removed")
     } else {
       integrationState = "error"
       integrationStateKnown = false
@@ -496,7 +709,13 @@ Item {
       if (payload !== "") handleProtocolEvent(payload)
       return
     }
-    if (Model.isCatalogChangeEvent(name)) catalogChangeTimer.restart()
+    if (Model.isCatalogChangeEvent(name)) {
+      var pendingEvents = pendingCatalogChangeEvents.slice()
+      if (pendingEvents.length < 64) pendingEvents.push(name.slice(0, 64))
+      pendingCatalogChangeEvents = pendingEvents
+      recordDebugTrace("hyprland-catalog-event", { name: name.slice(0, 64) })
+      catalogChangeTimer.restart()
+    }
     if (Model.isFullscreenEvent(name)) requestFullscreenRefresh()
   }
 
@@ -504,7 +723,12 @@ Item {
     id: catalogChangeTimer
     interval: 350
     repeat: false
-    onTriggered: root.regenerateCatalog()
+    onTriggered: {
+      root.recordDebugTrace("catalog-change-debounce-fired", {
+        eventNames: root.pendingCatalogChangeEvents.slice()
+      })
+      root.regenerateCatalog("hyprland-event")
+    }
   }
 
   property bool catalogRegenerationPending: false
@@ -564,13 +788,30 @@ Item {
     }
   }
 
-  function regenerateCatalog() {
+  function regenerateCatalog(trigger) {
+    var generationTrigger = String(trigger || "unspecified").slice(0, 64)
     if (catalogGenerationProcess.running || catalogPublicationPending) {
       catalogRegenerationPending = true
+      recordDebugTrace("catalog-generation-deferred", {
+        trigger: generationTrigger,
+        eventNames: pendingCatalogChangeEvents.slice()
+      })
       return false
     }
-    if (generatorPath === "") return false
+    if (generatorPath === "") {
+      recordDebugTrace("catalog-generation-skipped", {
+        trigger: generationTrigger,
+        reason: "generator-path-empty"
+      })
+      return false
+    }
     catalogRegenerationPending = false
+    activeCatalogGenerationContext = {
+      trigger: generationTrigger,
+      eventNames: pendingCatalogChangeEvents.slice()
+    }
+    pendingCatalogChangeEvents = []
+    recordDebugTrace("catalog-generation-started", activeCatalogGenerationContext)
     catalogGenerationProcess.command = ["python3", generatorPath, "--output-dir", stateDir]
     catalogGenerationProcess.running = true
     return true
@@ -582,11 +823,27 @@ Item {
     watchChanges: false
     onLoaded: {
       var publicationPending = root.catalogPublicationPending
-      var loaded = root.loadCatalog(text())
-      if (publicationPending) root.completeCatalogPublication(loaded)
+      var generation = root.pendingCatalogGeneration
+      var context = root.pendingCatalogPublicationContext || ({})
+      var loaded = root.loadCatalog(text(), {
+        source: publicationPending ? "generated" : "file-view",
+        trigger: String(context.trigger || ""),
+        eventNames: Array.isArray(context.eventNames) ? context.eventNames : [],
+        changed: generation ? generation.changed === true : null
+      })
+      if (publicationPending) {
+        root.pendingCatalogPublicationContext = ({})
+        root.completeCatalogPublication(loaded.ok)
+      }
     }
     onLoadFailed: {
-      root.clearGuide()
+      var context = root.pendingCatalogPublicationContext || ({})
+      root.recordDebugTrace("catalog-load-failed", {
+        trigger: String(context.trigger || ""),
+        eventNames: Array.isArray(context.eventNames) ? context.eventNames : []
+      })
+      root.pendingCatalogPublicationContext = ({})
+      root.clearGuide("catalog-load-failed")
       root.catalog = null
       root.catalogState = "error"
       root.setDiagnostic("catalogLoadFailures", 1)
@@ -601,6 +858,15 @@ Item {
     onExited: function(exitCode, exitStatus) {
       root.generatorOutput = String(generatorStdout.text || "")
       var generated = Model.parseCatalogGeneration(root.generatorOutput, exitCode)
+      var context = root.activeCatalogGenerationContext || ({})
+      root.activeCatalogGenerationContext = ({})
+      root.recordDebugTrace("catalog-generation-finished", {
+        trigger: String(context.trigger || ""),
+        eventNames: Array.isArray(context.eventNames) ? context.eventNames : [],
+        exitCode: Number(exitCode),
+        ok: generated.ok === true,
+        changed: generated.ok === true ? generated.changed === true : null
+      })
       if (!generated.ok) {
         root.catalogState = "error"
         root.setDiagnostic("catalogLoadFailures", 1)
@@ -611,6 +877,7 @@ Item {
         return
       }
       root.pendingCatalogGeneration = generated
+      root.pendingCatalogPublicationContext = context
       root.catalogPublicationPending = true
       catalogFile.reload()
     }
@@ -792,7 +1059,7 @@ Item {
       root.credentialPromptStateKnown = false
       root.credentialPromptActive = true
       root.setDiagnostic("layerQueryFailures", 1)
-      root.suppressGuide()
+      root.suppressGuide("polkit-layer-query-timeout")
       layerStatusProcess.signal(9)
     }
   }
@@ -847,7 +1114,7 @@ Item {
     root.inspectIntegration()
     manualSnippetProcess.command = [root.controllerPath, "manual-snippet"]
     manualSnippetProcess.running = true
-    root.regenerateCatalog()
+    root.regenerateCatalog("startup")
     root.requestFullscreenRefresh()
     root.requestLockStatus(false)
     root.requestLayerStatus()

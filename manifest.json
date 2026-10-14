@@ -22,7 +22,8 @@
       "guideSuperEnabled": true,
       "guideShiftEnabled": true,
       "guideCtrlEnabled": true,
-      "guideAltEnabled": true
+      "guideAltEnabled": true,
+      "debugModeEnabled": false
     },
     "schema": [
       {
@@ -54,6 +55,11 @@
         "key": "guideAltEnabled",
         "type": "boolean",
         "label": "Show Alt guide"
+      },
+      {
+        "key": "debugModeEnabled",
+        "type": "boolean",
+        "label": "Record local debug trace"
       }
     ]
   }

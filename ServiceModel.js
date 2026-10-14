@@ -102,6 +102,12 @@ function normalizeCatalog(raw) {
   }
 }
 
+function catalogSourceChanged(currentCatalog, nextCatalog) {
+  if (!isObject(nextCatalog) || !validSourceHash(nextCatalog.sourceHash)) return true
+  if (!isObject(currentCatalog) || !validSourceHash(currentCatalog.sourceHash)) return true
+  return currentCatalog.sourceHash !== nextCatalog.sourceHash
+}
+
 function allowedModifierMask(mask) {
   if (typeof mask !== "string" || mask === "") return false
   var parts = mask.split("_")

@@ -104,10 +104,22 @@ function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix
     })
   }
 
-  var opacityByDepth = [1, 0.72, 0.45]
+  var historyCountInRows = rows.length - (activeBinding || prefixBinding ? 1 : 0)
+  var historyOpacityByAge = [0.72, 0.45, 0.45]
+  var historyScaleByAge = [0.8, 0.6, 0.6]
   for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    var depth = rows.length - rowIndex - 1
-    rows[rowIndex].opacity = opacityByDepth[Math.min(depth, opacityByDepth.length - 1)]
+    var isCurrentRow = rows[rowIndex].active === true
+      || String(rows[rowIndex].key || "").indexOf("prefix:") === 0
+    if (isCurrentRow) {
+      rows[rowIndex].opacity = 1
+      rows[rowIndex].scale = 1
+      continue
+    }
+    var historyAge = historyCountInRows - rowIndex - 1
+    rows[rowIndex].opacity = historyOpacityByAge[
+      Math.min(historyAge, historyOpacityByAge.length - 1)]
+    rows[rowIndex].scale = historyScaleByAge[
+      Math.min(historyAge, historyScaleByAge.length - 1)]
   }
   return rows
 }

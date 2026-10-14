@@ -52,17 +52,28 @@ The panel lets you:
 
 - choose each guide root independently;
 - choose how long a key must be held before the guide appears;
-- keep guides hidden over fullscreen apps by default, or enable them there.
+- keep guides hidden over fullscreen apps by default, or enable them there;
+- opt in to a local debug trace of guide events and state transitions.
 
 Turning off a guide root hides only that overlay. It never disables the
 underlying shortcut.
 
 ## Privacy and local files
 
-Chordlight does not record or transmit what you type or do. It has no network
-client, does not use `/dev/input`, and does not persist shortcut-use history.
-The guide keeps only a brief, in-memory visual chord history so released
-shortcuts can remain on screen for up to 3 seconds.
+By default, Chordlight does not persist shortcut events. The guide keeps only
+a brief, in-memory visual chord history so released shortcuts can remain on
+screen for up to 3 seconds. Chordlight has no network client and does not use
+`/dev/input`.
+
+The panel's optional **Debug trace** mode records timestamps, matched
+registered shortcut chords, and guide state before and after each transition.
+It does not record typed text, unmatched keys, descriptions, dispatcher
+arguments, or window details. The trace stays on this machine, is limited to
+512 KB per file with two rotated copies, and uses private file permissions.
+Each JSONL line is one event: matched chords have a press/release phase, while
+guide transitions include their cause and state snapshots with phase, root,
+modifier mask, pending chords, and history sequence/deadline data. Turn it off
+in the panel to stop recording.
 
 Its fresh, independent runtime state lives here:
 
@@ -71,6 +82,10 @@ ${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight/
 ├── catalog.json            # registered shortcut descriptions and opaque IDs
 ├── bridge-catalog.lua      # allowlist used by the in-memory Hyprland bridge
 ├── bridge-control.lock     # prevents concurrent configuration changes
+├── debug/                  # created only when Debug trace is enabled
+│   ├── trace.jsonl         # local transition trace, with bounded rotations
+│   ├── trace.1.jsonl       # older rotated trace
+│   └── trace.2.jsonl       # oldest retained trace
 └── backups/                # rollback copies created only when config changes
 ```
 

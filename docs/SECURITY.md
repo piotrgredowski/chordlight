@@ -21,13 +21,14 @@ updates before installing them.
 
 ## What Chordlight writes
 
-Only after the user reviews the exact diff and clicks the enable/disable action,
-the controller may atomically edit the resolved Hyprland configuration target.
-It writes local operational files in:
+The service writes local operational files in:
 
 ```text
 ${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight/
 ```
+
+The controller edits the resolved Hyprland configuration target only after the
+user reviews the exact diff and clicks the enable/disable action.
 
 The leaf state directory is user-owned with mode `0700`; generated files use
 mode `0600`. Catalog generation repairs legacy user-owned state directories
@@ -47,6 +48,7 @@ through the Omakeez panel before removing that plugin.
 | `catalog.json` | Registered shortcut descriptions, modifier/key metadata, and opaque SHA-256 IDs. |
 | `bridge-catalog.lua` | Compact local allowlist for the Hyprland bridge. |
 | `bridge-control.lock` | Advisory lock that prevents concurrent bridge edits. |
+| `debug/trace.jsonl` | Optional local guide-transition trace, created only when Debug trace is enabled; capped at 512 KB with two rotated copies. |
 | `backups/` | Protected rollback copy and metadata, created only for a configuration mutation. |
 
 The catalog generator uses dispatcher arguments only while deriving opaque IDs.
@@ -79,16 +81,25 @@ hidden. Hyprland's `openlayer`/`closelayer` events are matched against the exact
 `omarchy-polkit` namespace; the service reads a fresh layer inventory after
 startup and layer transitions to account for multiple monitors.
 
-Chordlight does **not** persist typed text, passwords, raw key sequences,
-keybinding-use history, commands, dispatcher arguments, window titles,
-application identifiers, or telemetry.
+By default, Chordlight does not persist shortcut events. If the user enables
+**Debug trace** in the panel, the shell service writes timestamps, guide state
+before and after each transition, modifier masks, and the display combo plus
+opaque ID for matched registered shortcuts. The trace is local, uses
+`0600` files in a `0700` directory, and rotates at 512 KB with two backups.
+Turning Debug trace off stops new records; it does not delete existing trace
+files.
+
+Chordlight never persists typed text, passwords, unmatched keys, raw keycodes,
+descriptions, commands, dispatcher arguments, window titles, application
+identifiers, or telemetry. The optional trace is a guide-debug log, not a
+general keyboard log.
 
 After a registered shortcut key is released, the shell service may retain its
 opaque binding ID and expiry/order metadata in memory for at most 3 seconds so
 the guide can display a short visual chord history. Unexpired entries survive
 guide release and the start of a later guide. Capacity, suppression, catalog
-reload, explicit clear, or each entry's timeout can remove them sooner. The ID
-and description are never written to a history or statistics file.
+reload, explicit clear, or each entry's timeout can remove them sooner. This
+in-memory display history remains separate from the optional debug trace.
 
 ## Configuration safety
 
@@ -105,10 +116,11 @@ and the panel provides a manual snippet instead.
 ## Auditing a live installation
 
 1. Review [bridge.lua](../bridge.lua),
-   [generate-catalog](../scripts/generate-catalog), and
+   [generate-catalog](../scripts/generate-catalog),
+   [debug-trace](../scripts/debug-trace), and
    [bridge-control](../scripts/bridge-control).
-2. Inspect the Chordlight state directory listed above; it should contain only the
-   operational files described in this document.
+2. Inspect the Chordlight state directory listed above; the `debug/` directory
+   should exist only if Debug trace was enabled.
 3. Open the panel's **Review exact change** link before enabling.
 4. Confirm the resolved Hyprland file contains exactly one guarded block:
 

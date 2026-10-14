@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Append a bounded, private Chordlight state-transition trace."""
+import argparse
+import json
+import os
+import stat
+import sys
+from pathlib import Path
+
+MAX_FILE_BYTES = 512 * 1024
+MAX_ENTRY_BYTES = 16 * 1024
+ROTATIONS = 2
+
+
+def fail(message):
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def rotate_if_needed(path, incoming_size):
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+        fail("debug trace path is not a user-owned regular file")
+    if info.st_size + incoming_size <= MAX_FILE_BYTES:
+        return
+
+    oldest = path.with_name(f"{path.stem}.{ROTATIONS}{path.suffix}")
+    oldest.unlink(missing_ok=True)
+    for index in range(ROTATIONS - 1, 0, -1):
+        source = path.with_name(f"{path.stem}.{index}{path.suffix}")
+        if source.exists() or source.is_symlink():
+            os.replace(source, path.with_name(f"{path.stem}.{index + 1}{path.suffix}"))
+    os.replace(path, path.with_name(f"{path.stem}.1{path.suffix}"))
+
+
+def append_entry(path, entry):
+    if path.name != "trace.jsonl" or path.parent.name != "debug":
+        fail("unexpected debug trace location")
+    if path.parent.is_symlink():
+        fail("debug trace directory must not be a symlink")
+
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    directory_info = path.parent.lstat()
+    if not stat.S_ISDIR(directory_info.st_mode) or directory_info.st_uid != os.getuid():
+        fail("debug trace directory is not a user-owned directory")
+    os.chmod(path.parent, 0o700)
+
+    line = (json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
+    if len(line) > MAX_ENTRY_BYTES:
+        fail("debug trace entry is too large")
+    rotate_if_needed(path, len(line))
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o600)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+            fail("debug trace file is not a user-owned regular file")
+        os.fchmod(descriptor, 0o600)
+        remaining = memoryview(line)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                fail("could not finish writing debug trace entry")
+            remaining = remaining[written:]
+    finally:
+        os.close(descriptor)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--path", required=True)
+    args = parser.parse_args()
+    try:
+        entry = json.loads(sys.stdin.readline())
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        fail(f"invalid debug trace entry: {error}")
+    if not isinstance(entry, dict) or entry.get("schemaVersion") != 1:
+        fail("invalid debug trace entry")
+    append_entry(Path(args.path), entry)
+
+
+if __name__ == "__main__":
+    main()

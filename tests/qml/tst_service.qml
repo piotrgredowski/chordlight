@@ -41,6 +41,21 @@ TestCase {
     compare(result.catalog.byId[id("b")].description, "Terminal")
   }
 
+  function test_catalogSourceChangeUsesSourceHash() {
+    var current = Model.normalizeCatalog(validCatalog()).catalog
+    var sameSource = validCatalog()
+    sameSource.generatedAt = 2
+    var refreshed = Model.normalizeCatalog(sameSource).catalog
+    verify(!Model.catalogSourceChanged(current, refreshed))
+
+    var changedSource = validCatalog()
+    changedSource.sourceHash = id("d")
+    var changed = Model.normalizeCatalog(changedSource).catalog
+    verify(Model.catalogSourceChanged(current, changed))
+    verify(Model.catalogSourceChanged(null, current))
+    verify(Model.catalogSourceChanged(current, null))
+  }
+
   function test_catalogRejectsMalformedInputs() {
     verify(!Model.normalizeCatalog("not json").ok)
     var wrongSchema = validCatalog()

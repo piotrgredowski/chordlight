@@ -572,6 +572,67 @@ Panel {
             }
           }
 
+          PanelSeparator { width: parent.width; strength: 0.09 }
+
+          Row {
+            width: parent.width
+            spacing: Style.space(10)
+            Column {
+              width: parent.width - debugToggle.width - parent.spacing
+              spacing: Style.space(2)
+              Text {
+                width: parent.width
+                text: "DEBUG TRACE"
+                color: Color.foreground
+                opacity: 0.70
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              Text {
+                width: parent.width
+                text: "Record modifier events, matched shortcut chords, and guide state changes locally. Typed text and unmatched keys are not recorded."
+                color: Color.foreground
+                opacity: 0.78
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+              }
+            }
+            ToggleSwitch {
+              id: debugToggle
+              anchors.verticalCenter: parent.verticalCenter
+              checked: root.service && root.service.debugModeEnabled
+              onToggled: root.service.setDebugModeEnabled(!checked)
+            }
+          }
+          Text {
+            width: parent.width
+            visible: root.service && root.service.debugModeEnabled
+            text: "Trace file: " + (root.service ? root.service.debugTracePath : "")
+            color: Color.foreground
+            opacity: 0.7
+            font.family: "monospace"
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WrapAnywhere
+          }
+          Text {
+            width: parent.width
+            visible: root.service && root.service.debugModeEnabled
+              && root.service.debugTraceWriteFailures > 0
+            text: "Some trace entries could not be written ("
+              + (root.service ? root.service.debugTraceWriteFailures : 0) + ")."
+            color: Color.urgent
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WordWrap
+          }
+          Button {
+            width: parent.width
+            visible: root.service && root.service.debugModeEnabled
+            text: "Copy trace path"
+            onClicked: if (root.service)
+              Quickshell.execDetached(["bash", "-c", "printf %s "
+                + Util.shellQuote(root.service.debugTracePath) + " | wl-copy"])
+          }
+
           PanelSeparator { width: parent.width }
 
           Text {

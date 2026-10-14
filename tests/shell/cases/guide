@@ -7,7 +7,7 @@ env -u DISPLAY QT_QPA_PLATFORM=minimal QT_QPA_PLATFORMTHEME= \
 grep -q 'GuideModel.hasMatchingPrefix' "$root/SuperGuide.qml"
 grep -q 'function endGuide()' "$root/Service.qml"
 grep -q 'root.endGuide()' "$root/Service.qml"
-grep -q 'function clearGuide()' "$root/Service.qml"
+grep -q 'function clearGuide(' "$root/Service.qml"
 grep -q 'GuideState.transition' "$root/Service.qml"
 if rg -q 'setPrefixRowVisible|prefixRowVisible|clearHintHistory' "$root/Service.qml" "$root/SuperGuide.qml"; then
   echo "presentation changes must not mutate guide history state" >&2

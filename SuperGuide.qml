@@ -29,6 +29,7 @@ Item {
   readonly property int pillScreenGutter: Style.space(24)
   readonly property int maximumHintRows: 3
   readonly property int hintRowSpacing: Style.space(8)
+  readonly property int hintFadeDurationMs: 180
   readonly property real hintPillHeight: pillHeightSample.implicitHeight
     + Style.space(10) + Style.space(18)
   readonly property real maximumHintStackHeight: maximumHintRows * hintPillHeight
@@ -98,7 +99,8 @@ Item {
   function syncVisibility() {
     var mode = GuideModel.delayMode(service && service.guideVisible === true, delayValue)
     if (!eligible || delayValue < 0 || mode === "disabled") {
-      if (service && service.clearGuide) service.clearGuide()
+      if (service && service.clearGuide)
+        service.clearGuide(!eligible ? "guide-ineligible" : "guide-delay-disabled")
       hideGuide()
       return
     }
@@ -158,10 +160,12 @@ Item {
       PanelWindow {
         id: hintWindow
         required property var modelData
+        property bool hintFadeHold: false
+        property bool hintWasVisible: false
 
         screen: modelData
         visible: GuideModel.focusedVisible(
-          root.hintVisible,
+          root.eligible && (root.hintVisible || hintFadeHold),
           modelData ? modelData.name : "",
           root.focusedScreenName())
         color: "transparent"
@@ -177,6 +181,42 @@ Item {
         onVisibleChanged: {
           if (visible && root.service && root.service.recordGuideVisible)
             root.service.recordGuideVisible()
+        }
+
+        Component.onCompleted: hintWasVisible = root.hintVisible
+
+        Connections {
+          target: root
+          function onHintVisibleChanged() {
+            if (root.hintVisible) {
+              hintWindow.hintWasVisible = true
+              hintFadeTimer.stop()
+              hintWindow.hintFadeHold = false
+            } else if (hintWindow.hintWasVisible && root.eligible) {
+              hintWindow.hintWasVisible = false
+              hintWindow.hintFadeHold = true
+              hintFadeTimer.restart()
+            } else {
+              hintWindow.hintWasVisible = false
+              hintFadeTimer.stop()
+              hintWindow.hintFadeHold = false
+            }
+          }
+
+          function onEligibleChanged() {
+            if (!root.eligible) {
+              hintWindow.hintWasVisible = false
+              hintFadeTimer.stop()
+              hintWindow.hintFadeHold = false
+            }
+          }
+        }
+
+        Timer {
+          id: hintFadeTimer
+          interval: root.hintFadeDurationMs
+          repeat: false
+          onTriggered: hintWindow.hintFadeHold = false
         }
 
         Item {
@@ -199,11 +239,15 @@ Item {
                 required property int index
 
                 readonly property var rowModel: root.hintRowSlots[index] || null
-                readonly property string rowCombo: String(rowModel ? rowModel.combo || "" : "")
-                readonly property string rowDescription: String(rowModel ? rowModel.description || "" : "")
+                property var exitingRowModel: null
+                property bool isFadingOut: false
+                readonly property var displayedRowModel: rowModel
+                  || (isFadingOut ? exitingRowModel : null)
+                readonly property string rowCombo: String(displayedRowModel ? displayedRowModel.combo || "" : "")
+                readonly property string rowDescription: String(displayedRowModel ? displayedRowModel.description || "" : "")
                 readonly property var rowKeys: GuideModel.comboParts(rowCombo)
 
-                visible: rowModel !== null
+                visible: displayedRowModel !== null
                 x: (hintStack.width - width) / 2
                 y: hintStack.height - height
                   - (root.maximumHintRows - index - 1) * (height + root.hintRowSpacing)
@@ -214,12 +258,43 @@ Item {
                 implicitWidth: width
                 implicitHeight: height
                 opacity: rowModel ? Number(rowModel.opacity) : 0
+                scale: displayedRowModel ? Number(displayedRowModel.scale || 1) : 1
                 color: root.pillFill
                 borderSpec: Border.flat(root.pillOutline, Math.max(2, Style.space(2)))
                 radius: height / 2
 
                 Behavior on opacity {
-                  NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                  NumberAnimation { duration: root.hintFadeDurationMs; easing.type: Easing.OutCubic }
+                }
+
+                Behavior on scale {
+                  NumberAnimation { duration: root.hintFadeDurationMs; easing.type: Easing.OutCubic }
+                }
+
+                onRowModelChanged: {
+                  if (rowModel !== null) {
+                    exitFadeTimer.stop()
+                    isFadingOut = false
+                    exitingRowModel = rowModel
+                  } else if (exitingRowModel !== null) {
+                    isFadingOut = true
+                    exitFadeTimer.restart()
+                  }
+                }
+
+                Component.onCompleted: {
+                  if (rowModel !== null)
+                    exitingRowModel = rowModel
+                }
+
+                Timer {
+                  id: exitFadeTimer
+                  interval: root.hintFadeDurationMs
+                  repeat: false
+                  onTriggered: {
+                    hintPill.isFadingOut = false
+                    hintPill.exitingRowModel = null
+                  }
                 }
 
                 Row {
