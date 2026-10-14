@@ -12,6 +12,7 @@ Item {
   property var service: null
   property bool delayedVisible: false
   property int focusRevision: 0
+  property bool presentationReady: false
 
   readonly property bool eligible: service ? GuideModel.eligible({
     integrationState: service.integrationState,
@@ -30,6 +31,7 @@ Item {
   readonly property int maximumHintRows: 3
   readonly property int hintRowSpacing: Style.space(8)
   readonly property int hintFadeDurationMs: 180
+  readonly property int hintMoveDurationMs: 180
   readonly property real hintPillHeight: pillHeightSample.implicitHeight
     + Style.space(10) + Style.space(18)
   readonly property real maximumHintStackHeight: maximumHintRows * hintPillHeight
@@ -47,37 +49,88 @@ Item {
     && GuideModel.hasMatchingPrefix(service.catalog, currentMask, currentGuideRoot)
   readonly property var hintRows: GuideModel.hintRows(
     service ? service.catalog : null,
-    service && Array.isArray(service.activeHintIds) ? service.activeHintIds : [],
+    service && Array.isArray(service.activeHintEntries) ? service.activeHintEntries : [],
     service && Array.isArray(service.recentHintEntries) ? service.recentHintEntries : [],
     currentMask,
     currentGuideRoot,
     showPrefixRow)
-  readonly property var hintRowSlots: {
-    var rows = hintRows
-    var slots = [null, null, null]
-    if (!Array.isArray(rows) || rows.length === 0) return slots
-
-    var last = rows[rows.length - 1]
-    var hasCurrentRow = last && (last.active === true
-      || String(last.key || "").indexOf("prefix:") === 0)
-    if (hasCurrentRow) {
-      var historyCount = Math.min(rows.length - 1, maximumHintRows - 1)
-      var historyStart = maximumHintRows - 1 - historyCount
-      for (var historyIndex = 0; historyIndex < historyCount; historyIndex++)
-        slots[historyStart + historyIndex] = rows[historyIndex]
-      slots[maximumHintRows - 1] = last
-    } else {
-      var visibleHistoryCount = Math.min(rows.length, maximumHintRows - 1)
-      var visibleHistoryStart = maximumHintRows - 1 - visibleHistoryCount
-      for (var visibleIndex = 0; visibleIndex < visibleHistoryCount; visibleIndex++)
-        slots[visibleHistoryStart + visibleIndex] = rows[rows.length - visibleHistoryCount + visibleIndex]
-    }
-    return slots
-  }
   readonly property bool hasHintHistory: service && Array.isArray(service.recentHintEntries)
     && service.recentHintEntries.length > 0
   readonly property bool hintVisible: eligible && hintRows.length > 0
     && (delayedVisible || hasHintHistory)
+
+  ListModel {
+    id: hintPresentationModel
+  }
+
+  function hintPresentationIndex(visualId) {
+    var key = String(visualId || "")
+    for (var i = 0; i < hintPresentationModel.count; i++) {
+      if (String(hintPresentationModel.get(i).visualId || "") === key) return i
+    }
+    return -1
+  }
+
+  function removeHintPresentation(visualId) {
+    var index = hintPresentationIndex(visualId)
+    if (index >= 0 && hintPresentationModel.get(index).exiting === true)
+      hintPresentationModel.remove(index)
+  }
+
+  function syncHintPresentation() {
+    if (!presentationReady) return
+    if (!eligible) {
+      hintPresentationModel.clear()
+      return
+    }
+
+    var rows = Array.isArray(hintRows) ? hintRows : []
+    var visibleCount = Math.min(rows.length, maximumHintRows)
+    var firstRow = rows.length - visibleCount
+    var desiredIds = ({})
+    for (var desiredIndex = firstRow; desiredIndex < rows.length; desiredIndex++) {
+      var desiredId = String(rows[desiredIndex].visualId || rows[desiredIndex].key || "")
+      if (desiredId !== "") desiredIds[desiredId] = true
+    }
+
+    for (var existingIndex = 0; existingIndex < hintPresentationModel.count; existingIndex++) {
+      var existing = hintPresentationModel.get(existingIndex)
+      if (existing.exiting === true || desiredIds[String(existing.visualId || "")] === true) continue
+      hintPresentationModel.setProperty(existingIndex, "exiting", true)
+    }
+
+    for (var rowIndex = firstRow; rowIndex < rows.length; rowIndex++) {
+      var row = rows[rowIndex]
+      var visualId = String(row.visualId || row.key || "")
+      if (visualId === "") continue
+      var modelIndex = hintPresentationIndex(visualId)
+      var targetY = maximumHintStackHeight - hintPillHeight
+        - (visibleCount - 1 - (rowIndex - firstRow)) * (hintPillHeight + hintRowSpacing)
+      var values = {
+        visualId: visualId,
+        rowCombo: String(row.combo || ""),
+        rowDescription: String(row.description || ""),
+        phase: String(row.phase || (row.active === true ? "current" : "history")),
+        targetY: targetY,
+        targetOpacity: Math.max(0, Math.min(1, Number(row.opacity === undefined ? 1 : row.opacity))),
+        targetScale: Math.max(0.1, Number(row.scale === undefined ? 1 : row.scale)),
+        exiting: false
+      }
+
+      if (modelIndex < 0) {
+        hintPresentationModel.append(values)
+        continue
+      }
+
+      if (hintPresentationModel.get(modelIndex).exiting === true)
+        hintPresentationModel.setProperty(modelIndex, "exiting", false)
+      for (var role in values)
+        hintPresentationModel.setProperty(modelIndex, role, values[role])
+    }
+  }
+
+  onHintRowsChanged: syncHintPresentation()
+  onEligibleChanged: syncHintPresentation()
 
   Text {
     id: pillHeightSample
@@ -151,7 +204,11 @@ Item {
     function onFocusedMonitorChanged() { root.focusRevision += 1 }
   }
 
-  Component.onCompleted: syncVisibility()
+  Component.onCompleted: {
+    presentationReady = true
+    syncVisibility()
+    syncHintPresentation()
+  }
 
   Variants {
     model: Quickshell.screens
@@ -232,69 +289,82 @@ Item {
             anchors.bottomMargin: Style.space(18)
 
             Repeater {
-              model: root.maximumHintRows
+              model: hintPresentationModel
 
               delegate: BorderSurface {
                 id: hintPill
                 required property int index
+                required property string visualId
+                required property string rowCombo
+                required property string rowDescription
+                required property string phase
+                required property real targetY
+                required property real targetOpacity
+                required property real targetScale
+                required property bool exiting
 
-                readonly property var rowModel: root.hintRowSlots[index] || null
-                property var exitingRowModel: null
-                property bool isFadingOut: false
-                readonly property var displayedRowModel: rowModel
-                  || (isFadingOut ? exitingRowModel : null)
-                readonly property string rowCombo: String(displayedRowModel ? displayedRowModel.combo || "" : "")
-                readonly property string rowDescription: String(displayedRowModel ? displayedRowModel.description || "" : "")
+                property bool initialized: false
+                property real renderedOpacity: 0
+                property real renderedScale: 0.85
                 readonly property var rowKeys: GuideModel.comboParts(rowCombo)
 
-                visible: displayedRowModel !== null
+                visible: true
                 x: (hintStack.width - width) / 2
-                y: hintStack.height - height
-                  - (root.maximumHintRows - index - 1) * (height + root.hintRowSpacing)
+                y: targetY
+                z: targetY
                 width: Math.max(0, Math.min(
                   contentRow.implicitWidth + root.pillHorizontalPadding,
                   screenHost.width - root.pillScreenGutter * 2))
                 height: root.hintPillHeight
                 implicitWidth: width
                 implicitHeight: height
-                opacity: rowModel ? Number(rowModel.opacity) : 0
-                scale: displayedRowModel ? Number(displayedRowModel.scale || 1) : 1
+                opacity: renderedOpacity
+                scale: renderedScale
                 color: root.pillFill
                 borderSpec: Border.flat(root.pillOutline, Math.max(2, Style.space(2)))
                 radius: height / 2
+
+                Behavior on y {
+                  NumberAnimation { duration: root.hintMoveDurationMs; easing.type: Easing.OutCubic }
+                }
 
                 Behavior on opacity {
                   NumberAnimation { duration: root.hintFadeDurationMs; easing.type: Easing.OutCubic }
                 }
 
                 Behavior on scale {
-                  NumberAnimation { duration: root.hintFadeDurationMs; easing.type: Easing.OutCubic }
+                  NumberAnimation { duration: root.hintMoveDurationMs; easing.type: Easing.OutCubic }
                 }
 
-                onRowModelChanged: {
-                  if (rowModel !== null) {
-                    exitFadeTimer.stop()
-                    isFadingOut = false
-                    exitingRowModel = rowModel
-                  } else if (exitingRowModel !== null) {
-                    isFadingOut = true
+                onTargetOpacityChanged: {
+                  if (initialized) renderedOpacity = targetOpacity
+                }
+                onTargetScaleChanged: {
+                  if (initialized) renderedScale = targetScale
+                }
+
+                onExitingChanged: {
+                  if (exiting) {
+                    hintPresentationModel.setProperty(index, "targetY", y)
+                    hintPresentationModel.setProperty(index, "targetOpacity", 0)
                     exitFadeTimer.restart()
+                  } else {
+                    exitFadeTimer.stop()
                   }
                 }
 
                 Component.onCompleted: {
-                  if (rowModel !== null)
-                    exitingRowModel = rowModel
+                  initialized = true
+                  renderedOpacity = exiting ? 0 : targetOpacity
+                  renderedScale = targetScale
+                  if (exiting) exitFadeTimer.restart()
                 }
 
                 Timer {
                   id: exitFadeTimer
                   interval: root.hintFadeDurationMs
                   repeat: false
-                  onTriggered: {
-                    hintPill.isFadingOut = false
-                    hintPill.exitingRowModel = null
-                  }
+                  onTriggered: root.removeHintPresentation(hintPill.visualId)
                 }
 
                 Row {

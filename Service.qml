@@ -21,7 +21,8 @@ Item {
   readonly property bool guideAwaitingLockCheck: guideState.phase === GuideState.PHASE_CHECKING
   readonly property string activeModifiers: String(guideState.modifiers || "")
   readonly property string activeGuideRoot: String(guideState.root || "")
-  readonly property var activeHintIds: guideState.pendingIds
+  readonly property var activeHintIds: GuideState.pendingIds(guideState)
+  readonly property var activeHintEntries: guideState.pendingEntries
   readonly property var recentHintEntries: guideState.history
   property int guideDelayMs: 0
   property bool showInFullscreen: false
@@ -119,7 +120,7 @@ Item {
   function traceState(state) {
     var source = state && typeof state === "object" ? state : GuideState.initialState()
     var pending = []
-    var pendingIds = Array.isArray(source.pendingIds) ? source.pendingIds : []
+    var pendingIds = GuideState.pendingIds(source)
     for (var i = 0; i < pendingIds.length && i < 32; i++)
       pending.push(traceBinding(pendingIds[i]))
 
@@ -506,7 +507,7 @@ Item {
   function clearGuide(reason) {
     pendingGuideReceivedMs = 0
     var hasState = guideState.phase !== GuideState.PHASE_IDLE
-      || guideState.pendingIds.length > 0 || guideState.history.length > 0
+      || guideState.pendingEntries.length > 0 || guideState.history.length > 0
     if (!hasState) return false
     root.transitionGuide({ type: "reset", reason: String(reason || "explicit-clear") })
     return true

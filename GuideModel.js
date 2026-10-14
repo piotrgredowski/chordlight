@@ -55,7 +55,7 @@ function activeHintBinding(catalog, activeIds) {
   return null
 }
 
-function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix) {
+function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPrefix) {
   var byId = catalog && catalog.byId ? catalog.byId : null
   var rows = []
   if (!byId) return rows
@@ -66,7 +66,25 @@ function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix
       ? binding : null
   }
 
-  var activeBinding = activeHintBinding(catalog, activeIds)
+  var activeSource = Array.isArray(activeEntries) ? activeEntries : []
+  var activeIdsOnly = []
+  for (var activeIndex = 0; activeIndex < activeSource.length; activeIndex++) {
+    var activeItem = activeSource[activeIndex]
+    activeIdsOnly.push(typeof activeItem === "string"
+      ? activeItem : String(activeItem && activeItem.id || ""))
+  }
+  var activeBinding = activeHintBinding(catalog, activeIdsOnly)
+  var activeVisualId = ""
+  if (activeBinding) {
+    for (var visualIndex = activeSource.length - 1; visualIndex >= 0; visualIndex--) {
+      var visualItem = activeSource[visualIndex]
+      var visualItemId = typeof visualItem === "string"
+        ? visualItem : String(visualItem && visualItem.id || "")
+      if (visualItemId !== activeBinding.id) continue
+      activeVisualId = String(visualItem && visualItem.visualId || "")
+      break
+    }
+  }
   var prefixBinding = !activeBinding && showPrefix === true
     && hasMatchingPrefix(catalog, mask, guideRoot)
 
@@ -77,8 +95,12 @@ function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix
     var entry = recent[historyIndex]
     var binding = eligibleBinding(entry && entry.id)
     if (!binding) continue
+    var historyVisualId = String(entry && entry.visualId
+      || "history:" + String(entry && entry.sequence) + ":" + binding.id)
     rows.push({
-      key: "history:" + String(entry.sequence) + ":" + binding.id,
+      key: historyVisualId,
+      visualId: historyVisualId,
+      phase: "history",
       binding: binding,
       combo: displayCombo(binding),
       description: displayDescription(binding),
@@ -87,16 +109,22 @@ function hintRows(catalog, activeIds, recentEntries, mask, guideRoot, showPrefix
   }
 
   if (activeBinding) {
+    if (activeVisualId === "") activeVisualId = "active:" + activeBinding.id
     rows.push({
-      key: "active:" + activeBinding.id,
+      key: activeVisualId,
+      visualId: activeVisualId,
+      phase: "current",
       binding: activeBinding,
       combo: displayCombo(activeBinding),
       description: displayDescription(activeBinding),
       active: true
     })
   } else if (prefixBinding) {
+    var prefixVisualId = "prefix:" + String(mask || guideRoot || "")
     rows.push({
-      key: "prefix:" + String(mask || guideRoot || ""),
+      key: prefixVisualId,
+      visualId: prefixVisualId,
+      phase: "current",
       binding: null,
       combo: String(mask || guideRoot || "").split("_").join(" + "),
       description: "",

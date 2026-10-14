@@ -57,6 +57,32 @@ TestCase {
     compare(state.history[0].sequence, 2)
   }
 
+  function test_visualIdentityMovesFromPendingChordIntoHistory() {
+    var bindingId = id("a")
+    var state = activeState("SUPER")
+    state = GuideState.transition(state, { type: "hintDown", id: bindingId })
+    compare(state.pendingEntries.length, 1)
+    compare(GuideState.pendingIds(state)[0], bindingId)
+    var firstVisualId = state.pendingEntries[0].visualId
+    verify(firstVisualId !== "")
+
+    state = GuideState.transition(state, { type: "hintDown", id: bindingId })
+    compare(state.pendingEntries.length, 1)
+    compare(state.pendingEntries[0].visualId, firstVisualId)
+
+    state = GuideState.transition(state, { type: "hintUp", id: bindingId, at: 100 })
+    compare(state.pendingEntries.length, 0)
+    compare(GuideState.pendingIds(state).length, 0)
+    compare(state.history[0].visualId, firstVisualId)
+    compare(state.history[0].sequence, 1)
+
+    state = GuideState.transition(state, { type: "hintDown", id: bindingId })
+    verify(state.pendingEntries[0].visualId !== firstVisualId)
+    state = GuideState.transition(state, { type: "hintUp", id: bindingId, at: 200 })
+    compare(state.history[0].sequence, 2)
+    verify(state.history[0].visualId !== state.history[1].visualId)
+  }
+
   function test_modifierChangeCancelsOnlyPendingChord() {
     var completedId = id("d")
     var pendingId = id("e")
@@ -66,7 +92,7 @@ TestCase {
       type: "modifiersChanged",
       modifiers: "SUPER_SHIFT"
     })
-    compare(state.pendingIds.length, 0)
+    compare(state.pendingEntries.length, 0)
     compare(state.history.length, 1)
     compare(state.history[0].id, completedId)
     compare(state.history[0].expiresAt, 4000)
@@ -114,7 +140,7 @@ TestCase {
   function test_unmatchedReleaseDoesNotCreateHistory() {
     var state = activeState("SUPER")
     state = GuideState.transition(state, { type: "hintUp", id: id("4"), at: 100 })
-    compare(state.pendingIds.length, 0)
+    compare(state.pendingEntries.length, 0)
     compare(state.history.length, 0)
   }
 
@@ -123,8 +149,9 @@ TestCase {
     state = GuideState.transition(state, { type: "reset" })
     compare(state.phase, GuideState.PHASE_IDLE)
     compare(state.root, "")
-    compare(state.pendingIds.length, 0)
+    compare(state.pendingEntries.length, 0)
     compare(state.history.length, 0)
     compare(state.nextSequence, 1)
+    compare(state.nextVisualId, 1)
   }
 }

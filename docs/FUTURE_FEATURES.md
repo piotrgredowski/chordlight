@@ -17,3 +17,7 @@ Let users adjust the guide's size.
 Original colleague feedback (Polish):
 
 > Dodaj opcję żeby móc ustawić np na górze na środku, albo wyrównane do prawej góry albo dołu. To może być przydatne do używania tego do nagrywania ekranu. Może też żeby tekst pokazywał się poniżej skrótu klawiaturowego. No i żeby wielkość była konfigurowalna.
+
+## Panel usability and display controls
+
+Improve the settings panel shown in the screenshot so it is clearer and easier to use. Add a configurable duration for how long a chord or history hint stays visible before it disappears. Consider surfacing the guide position, description display, and size controls above in the panel, along with other useful guide options identified during the redesign.

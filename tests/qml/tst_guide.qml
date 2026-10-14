@@ -131,6 +131,36 @@ TestCase {
     compare(activeRows[2].active, true)
   }
 
+  function test_hintRowsKeepVisualIdentityWhenChordBecomesHistory() {
+    var source = catalog()
+    var chord = source.bindings[0]
+    var visualId = "hint-42"
+    var activeRows = GuideModel.hintRows(
+      source, [{ id: chord.id, visualId: visualId }], [], "SUPER", "SUPER", false)
+    compare(activeRows.length, 1)
+    compare(activeRows[0].visualId, visualId)
+    compare(activeRows[0].phase, "current")
+
+    var history = [{
+      id: chord.id,
+      visualId: visualId,
+      sequence: 7,
+      expiresAt: 3000
+    }]
+    var stackedRows = GuideModel.hintRows(
+      source, [], history, "SUPER", "SUPER", true)
+    compare(stackedRows.length, 2)
+    compare(stackedRows[0].visualId, visualId)
+    compare(stackedRows[0].phase, "history")
+    compare(stackedRows[1].phase, "current")
+
+    var releasedRows = GuideModel.hintRows(
+      source, [], history, "SUPER", "SUPER", false)
+    compare(releasedRows.length, 1)
+    compare(releasedRows[0].visualId, visualId)
+    compare(releasedRows[0].phase, "history")
+  }
+
   function test_suppressionAndDelayModes() {
     var state = {
       integrationState: "enabled",
