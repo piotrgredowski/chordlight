@@ -13,9 +13,9 @@ TestCase {
     return GuideState.transition(state, { type: "sessionActivated" })
   }
 
-  function complete(state, bindingId, at) {
-    state = GuideState.transition(state, { type: "hintDown", id: bindingId })
-    return GuideState.transition(state, { type: "hintUp", id: bindingId, at: at })
+  function complete(state, bindingId, at, settings) {
+    state = GuideState.transition(state, { type: "hintDown", id: bindingId }, settings)
+    return GuideState.transition(state, { type: "hintUp", id: bindingId, at: at }, settings)
   }
 
   function test_differentChordsKeepIndependentDeadlines() {
@@ -135,6 +135,41 @@ TestCase {
     compare(state.history[0].id, third)
     compare(state.history[1].id, second)
     compare(state.nextSequence, 4)
+  }
+
+  function test_historyCountChangesTrimExistingEntriesWithoutChangingDeadlines() {
+    var first = id("a")
+    var second = id("b")
+    var state = complete(activeState("SUPER"), first, 100)
+    state = complete(state, second, 200)
+    compare(state.history.length, 2)
+    var secondExpiry = state.history[0].expiresAt
+    state = GuideState.transition(state, { type: "settingsChanged", at: 250 }, {
+      historyCount: 1,
+      historyDurationMs: 10000
+    })
+    compare(state.history.length, 1)
+    compare(state.history[0].id, second)
+    compare(state.history[0].expiresAt, secondExpiry)
+    state = GuideState.transition(state, { type: "settingsChanged", at: 300 }, {
+      historyCount: 0,
+      historyDurationMs: 10000
+    })
+    compare(state.history.length, 0)
+  }
+
+  function testDurationAppliesToNewCompletionsOnly() {
+    var first = id("c")
+    var second = id("d")
+    var longDuration = { historyCount: 2, historyDurationMs: 5000 }
+    var shortDuration = { historyCount: 2, historyDurationMs: 1000 }
+    var state = complete(activeState("SUPER"), first, 0, longDuration)
+    state = complete(state, second, 100, shortDuration)
+    compare(state.history[0].expiresAt, 1100)
+    compare(state.history[1].expiresAt, 5000)
+    state = GuideState.transition(state, { type: "expire", at: 1100 }, shortDuration)
+    compare(state.history.length, 1)
+    compare(state.history[0].id, first)
   }
 
   function test_unmatchedReleaseDoesNotCreateHistory() {

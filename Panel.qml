@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import qs.Commons
 import qs.Ui
+import "GuideModel.js" as GuideModel
 
 Panel {
   id: root
@@ -17,13 +18,13 @@ Panel {
   property var preview: ({})
   property bool confirmDisable: false
   property bool showDiff: false
-  property string previewPosition: "bottom-center"
-  property string previewDescriptionMode: "inline"
-  property int previewSizePercent: 100
-  property int previewStackSpacing: 8
-  property int previewHistoryCount: 2
-  property int previewHistoryDurationSeconds: 3
-  property int previewHistoryTransparency: 1
+  readonly property string previewPosition: service ? String(service.displayPosition || "bottom-center") : "bottom-center"
+  readonly property string previewDescriptionMode: service ? String(service.descriptionMode || "inline") : "inline"
+  readonly property int previewSizePercent: Math.round(GuideModel.pillSizeFactor(service ? service.pillSize : "medium") * 100)
+  readonly property int previewStackSpacing: GuideModel.stackGapUnits(service ? service.stackGap : "default")
+  readonly property int previewHistoryCount: service ? Number(service.historyCount) : 2
+  readonly property int previewHistoryDurationSeconds: service ? Number(service.historyDurationSeconds) : 3
+  readonly property string previewHistoryTransparency: service ? String(service.historyTransparency || "balanced") : "balanced"
 
   readonly property bool onboarding: !service || service.integrationState !== "enabled"
   readonly property string displayedHash: preview && typeof preview.currentHash === "string"
@@ -161,23 +162,28 @@ Panel {
     return visualX - (1 - scale) * pillWidth / 2
   }
   function previewHistoryOpacity(level) {
-    var opacityLevels = [
-      [0.30, 0.52],
-      [0.45, 0.72],
-      [0.62, 0.86]
-    ]
-    return opacityLevels[previewHistoryTransparency][level]
+    return GuideModel.historyOpacity(previewHistoryTransparency, level)
   }
-  readonly property real previewKeyFontSize: Math.max(26, Style.font.displayLarge * 0.95) * root.previewScale()
-  readonly property real previewPillHeight: previewPillHeightSample.implicitHeight
-    + Style.space(10) * root.previewScale() + Style.space(18) * root.previewScale()
+  function updateDisplaySetting(name, value) {
+    return root.service && typeof root.service.setDisplaySetting === "function"
+      ? root.service.setDisplaySetting(name, value) : false
+  }
+
+  function settingsStatusLabel() {
+    if (!root.service) return "SETTINGS UNAVAILABLE"
+    if (root.service.settingsStatus === "saved") return "SETTINGS SAVED"
+    if (root.service.settingsStatus === "saving") return "SAVING SETTINGS"
+    if (root.service.settingsStatus === "loading") return "LOADING SETTINGS"
+    return "SETTINGS ERROR"
+  }
+
   function previewRows() {
     var rows = []
     if (previewHistoryCount > 1)
-      rows.push({ keys: ["SUPER", "LEFT"], description: "Left", scale: 0.6, opacity: previewHistoryOpacity(0) })
+      rows.push({ combo: "SUPER + LEFT", description: "Left", scale: GuideModel.historyScale(1), opacity: previewHistoryOpacity(1) })
     if (previewHistoryCount > 0)
-      rows.push({ keys: ["SUPER", "RIGHT"], description: "Right", scale: 0.8, opacity: previewHistoryOpacity(1) })
-    rows.push({ keys: ["SUPER", "K"], description: "Launch", scale: 1.0, opacity: 1.0 })
+      rows.push({ combo: "SUPER + RIGHT", description: "Right", scale: GuideModel.historyScale(0), opacity: previewHistoryOpacity(0) })
+    rows.push({ combo: "SUPER + K", description: "Launch", scale: 1.0, opacity: 1.0 })
     return rows
   }
 
@@ -195,17 +201,6 @@ Panel {
     target: root.service
     ignoreUnknownSignals: true
     function onIntegrationDetailsChanged() { root.refreshPreview() }
-  }
-
-  Text {
-    id: previewPillHeightSample
-    visible: false
-    text: "M"
-    color: "transparent"
-    font.family: Style.font.family
-    font.pixelSize: Math.max(26, Style.font.displayLarge * 0.95) * root.previewScale()
-    font.weight: Font.Medium
-    font.letterSpacing: Style.space(1) * root.previewScale()
   }
 
   KeyboardPanel {
@@ -563,6 +558,15 @@ Panel {
             font.bold: true
           }
 
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.settingsStatusLabel()
+            color: root.service && root.service.settingsStatus === "error" ? Color.urgent : Color.foreground
+            opacity: root.service && root.service.settingsStatus === "saved" ? 0.58 : 0.9
+            font.pixelSize: Style.font.caption * 0.85
+            font.bold: true
+          }
+
           Button {
             text: root.confirmDisable ? "Confirm disable" : "Disable guide"
             selected: root.confirmDisable
@@ -735,12 +739,15 @@ Panel {
 
                 Column {
                   id: previewStack
-                  width: previewCanvas.width
+                  width: Math.max(0, previewCanvas.width - Style.space(48))
                   height: implicitHeight
-                  x: 0
+                  x: root.previewPosition.endsWith("-left") ? Style.space(24)
+                    : root.previewPosition.endsWith("-right")
+                      ? previewCanvas.width - width - Style.space(24)
+                      : (previewCanvas.width - width) / 2
                   y: root.previewPosition.indexOf("top-") === 0
-                    ? Style.space(22) : previewCanvas.height - height - Style.space(3)
-                  spacing: 0
+                    ? Style.space(18) : previewCanvas.height - height - Style.space(18)
+                  spacing: Style.space(root.previewStackSpacing)
                   z: 1
 
                   Repeater {
@@ -752,113 +759,24 @@ Panel {
                       required property var modelData
                       required property int index
                       readonly property real rowScale: Number(modelData.scale)
-                      readonly property real rowGap: index + 1 < previewRepeater.count
-                        ? Style.space(root.previewStackSpacing) : 0
 
                       width: previewStack.width
-                      height: previewPill.implicitHeight * rowScale + rowGap
+                      // Keep the full-size slot used by the live stack. The pill
+                      // shrinks inside it, so the preview shows the same visible gap.
+                      height: previewPill.implicitHeight
 
-                      BorderSurface {
+                      ChordHintPill {
                         id: previewPill
-                        readonly property var rowKeys: previewRow.modelData.keys
-
-                        width: previewContent.implicitWidth + Style.space(32) * root.previewScale()
-                        height: root.previewDescriptionMode === "below"
-                          ? previewContent.implicitHeight + Style.space(18) * root.previewScale()
-                          : root.previewPillHeight
-                        implicitWidth: width
-                        implicitHeight: height
+                        combo: String(previewRow.modelData.combo || "")
+                        description: String(previewRow.modelData.description || "")
+                        descriptionMode: root.previewDescriptionMode
+                        sizeFactor: root.previewScale()
+                        maxWidth: previewRow.width
+                        width: Math.max(0, Math.min(implicitWidth, maxWidth))
+                        height: implicitHeight
                         x: root.previewPillX(root.previewPosition, previewRow.width, width, previewRow.rowScale)
-                        y: -(1 - previewRow.rowScale) * height / 2
                         opacity: Number(previewRow.modelData.opacity)
                         scale: previewRow.rowScale
-                        color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.84)
-                        borderSpec: Border.flat(Color.accent, Math.max(2, Style.space(2)))
-                        radius: height / 2
-
-                        Column {
-                          id: previewContent
-                          x: Style.space(16) * root.previewScale()
-                          y: Style.space(9) * root.previewScale()
-                          spacing: Style.space(4) * root.previewScale()
-
-                          Row {
-                            id: previewContentRow
-                            spacing: Style.space(10) * root.previewScale()
-
-                            Row {
-                              id: keyRow
-                              spacing: Style.space(8) * root.previewScale()
-
-                              Repeater {
-                                model: previewPill.rowKeys
-
-                                delegate: Row {
-                                  required property string modelData
-                                  required property int index
-                                  spacing: Style.space(6) * root.previewScale()
-
-                                  Text {
-                                    visible: index > 0
-                                    text: "+"
-                                    color: Color.accent
-                                    font.family: Style.font.family
-                                    font.pixelSize: root.previewKeyFontSize * 0.8
-                                    font.weight: Font.Medium
-                                    anchors.verticalCenter: parent.verticalCenter
-                                  }
-
-                                  BorderSurface {
-                                    width: keyLabel.implicitWidth + Style.space(20) * root.previewScale()
-                                    height: keyLabel.implicitHeight + Style.space(10) * root.previewScale()
-                                    implicitWidth: width
-                                    implicitHeight: height
-                                    color: "transparent"
-                                    borderSpec: Border.flat(
-                                      Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.9),
-                                      Math.max(2, Style.space(2)))
-                                    radius: Math.max(Style.cornerRadius, Style.space(8) * root.previewScale())
-
-                                    Text {
-                                      id: keyLabel
-                                      anchors.centerIn: parent
-                                      text: String(modelData || "").toUpperCase()
-                                      color: Color.foreground
-                                      font.family: Style.font.family
-                                      font.pixelSize: root.previewKeyFontSize
-                                      font.weight: Font.Medium
-                                      font.letterSpacing: Style.space(1) * root.previewScale()
-                                    }
-                                  }
-                                }
-                              }
-                            }
-
-                            Text {
-                              id: inlineDescription
-                              visible: root.previewDescriptionMode === "inline"
-                                && String(previewRow.modelData.description || "") !== ""
-                              text: String(previewRow.modelData.description || "")
-                              color: Color.foreground
-                              font.family: Style.font.family
-                              font.pixelSize: root.previewKeyFontSize * 0.8
-                              font.weight: Font.Medium
-                              verticalAlignment: Text.AlignVCenter
-                              y: (parent.height - height) / 2
-                            }
-                          }
-
-                          Text {
-                            visible: root.previewDescriptionMode === "below"
-                              && String(previewRow.modelData.description || "") !== ""
-                            text: String(previewRow.modelData.description || "")
-                            color: Color.foreground
-                            font.family: Style.font.family
-                            font.pixelSize: root.previewKeyFontSize * 0.8
-                            font.weight: Font.Medium
-                            x: (parent.width - width) / 2
-                          }
-                        }
                       }
                     }
                   }
@@ -956,6 +874,16 @@ Panel {
 
             Text {
               width: parent.width
+              visible: !!root.service && root.service.settingsStatus === "error"
+              text: root.service ? String(root.service.settingsError || "Settings could not be loaded or saved.") : ""
+              color: Color.urgent
+              opacity: 0.9
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
+            Text {
+              width: parent.width
               text: "POSITION"
               color: Color.foreground
               opacity: 0.70
@@ -981,7 +909,7 @@ Panel {
                   width: (positionGrid.width - Style.space(8)) / 3
                   text: modelData.icon + "  " + modelData.label
                   selected: root.previewPosition === modelData.value
-                  onClicked: root.previewPosition = modelData.value
+                  onClicked: root.updateDisplaySetting("position", modelData.value)
                 }
               }
             }
@@ -1009,7 +937,7 @@ Panel {
                     required property string modelData
                     text: modelData
                     selected: root.previewDescriptionMode === modelData.toLowerCase()
-                    onClicked: root.previewDescriptionMode = modelData.toLowerCase()
+                    onClicked: root.updateDisplaySetting("descriptionMode", modelData.toLowerCase())
                   }
                 }
               }
@@ -1046,7 +974,7 @@ Panel {
                     width: (sizeChoices.width - Style.space(8)) / 3
                     text: ["Small", "Medium", "Large"][index]
                     selected: root.previewSizePercent === modelData
-                    onClicked: root.previewSizePercent = modelData
+                    onClicked: root.updateDisplaySetting("pillSize", ["small", "medium", "large"][index])
                   }
                 }
               }
@@ -1074,14 +1002,17 @@ Panel {
                 columns: 3
                 spacing: Style.space(4)
                 Repeater {
-                  model: [4, 8, 16]
+                  model: [
+                    { label: "Tight", value: "tight" },
+                    { label: "Default", value: "default" },
+                    { label: "Loose", value: "loose" }
+                  ]
                   Button {
-                    required property int modelData
-                    required property int index
+                    required property var modelData
                     width: (gapChoices.width - Style.space(8)) / 3
-                    text: ["Tight", "Default", "Loose"][index]
-                    selected: root.previewStackSpacing === modelData
-                    onClicked: root.previewStackSpacing = modelData
+                    text: modelData.label
+                    selected: root.service && root.service.stackGap === modelData.value
+                    onClicked: root.updateDisplaySetting("stackGap", modelData.value)
                   }
                 }
               }
@@ -1113,14 +1044,17 @@ Panel {
                 columns: 3
                 spacing: Style.space(4)
                 Repeater {
-                  model: ["Faded", "Balanced", "Clear"]
+                  model: [
+                    { label: "Faded", value: "faded" },
+                    { label: "Balanced", value: "balanced" },
+                    { label: "Clear", value: "clear" }
+                  ]
                   Button {
-                    required property string modelData
-                    required property int index
+                    required property var modelData
                     width: (transparencyChoices.width - Style.space(8)) / 3
-                    text: modelData
-                    selected: root.previewHistoryTransparency === index
-                    onClicked: root.previewHistoryTransparency = index
+                    text: modelData.label
+                    selected: root.previewHistoryTransparency === modelData.value
+                    onClicked: root.updateDisplaySetting("historyTransparency", modelData.value)
                   }
                 }
               }
@@ -1149,7 +1083,7 @@ Panel {
                     required property int modelData
                     text: modelData === 0 ? "Off" : String(modelData)
                     selected: root.previewHistoryCount === modelData
-                    onClicked: root.previewHistoryCount = modelData
+                    onClicked: root.updateDisplaySetting("historyCount", modelData)
                   }
                 }
               }
@@ -1165,7 +1099,7 @@ Panel {
             }
             Text {
               width: parent.width
-              text: "Time after release before a chord leaves history. Held chords stay visible. Preview only."
+              text: "How long each new chord stays in history after release. Existing chords keep their current countdown."
               color: Color.foreground
               opacity: 0.78
               font.pixelSize: Style.font.caption
@@ -1180,7 +1114,7 @@ Panel {
                   required property int modelData
                   text: modelData + " sec"
                   selected: root.previewHistoryDurationSeconds === modelData
-                  onClicked: root.previewHistoryDurationSeconds = modelData
+                  onClicked: root.updateDisplaySetting("historyDurationSeconds", modelData)
                 }
               }
             }

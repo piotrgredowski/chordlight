@@ -26,8 +26,15 @@ function initialState() {
   }
 }
 
-function copyState(source) {
+function normalizedHistoryLimit(value) {
+  var limit = Number(value)
+  if (!isFinite(limit)) return MAX_HISTORY_ENTRIES
+  return Math.max(0, Math.min(MAX_HISTORY_ENTRIES, Math.floor(limit)))
+}
+
+function copyState(source, historyLimit) {
   var state = source && typeof source === "object" ? source : {}
+  var retainedHistoryLimit = normalizedHistoryLimit(historyLimit)
   var phase = state.phase === PHASE_CHECKING || state.phase === PHASE_ACTIVE
     ? state.phase : PHASE_IDLE
   var root = validRoot(state.root) ? state.root : ""
@@ -78,7 +85,7 @@ function copyState(source) {
     root: phase === PHASE_IDLE ? "" : root,
     modifiers: phase === PHASE_IDLE ? "" : String(state.modifiers || ""),
     pendingEntries: phase === PHASE_IDLE ? [] : pendingEntries,
-    history: history.slice(0, MAX_HISTORY_ENTRIES),
+    history: history.slice(0, retainedHistoryLimit),
     nextSequence: Math.floor(nextSequence),
     nextVisualId: Math.floor(nextVisualId)
   }
@@ -111,8 +118,12 @@ function unexpiredHistory(entries, now) {
   return result
 }
 
-function transition(source, event) {
-  var state = copyState(source)
+function transition(source, event, settings) {
+  var options = settings && typeof settings === "object" ? settings : {}
+  var historyLimit = normalizedHistoryLimit(options.historyCount)
+  var historyDurationMs = Number(options.historyDurationMs)
+  if (!isFinite(historyDurationMs) || historyDurationMs <= 0) historyDurationMs = HINT_HISTORY_MS
+  var state = copyState(source, historyLimit)
   if (!event || typeof event.type !== "string") return state
 
   switch (event.type) {
@@ -169,9 +180,9 @@ function transition(source, event) {
       visualId: completedEntry.visualId,
       sequence: state.nextSequence,
       completedAt: completedAt,
-      expiresAt: completedAt + HINT_HISTORY_MS
+      expiresAt: completedAt + historyDurationMs
     })
-    state.history = state.history.slice(0, MAX_HISTORY_ENTRIES)
+    state.history = state.history.slice(0, historyLimit)
     state.nextSequence += 1
     return state
 

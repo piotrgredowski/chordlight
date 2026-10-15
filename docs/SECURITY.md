@@ -27,6 +27,11 @@ The service writes local operational files in:
 ${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/chordlight/
 ```
 
+Preferences are stored separately in
+`${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/chordlight.toml`. This file holds
+the display options and guide behavior preferences; it does not contain
+shortcut event history.
+
 The controller edits the resolved Hyprland configuration target only after the
 user reviews the exact diff and clicks the enable/disable action.
 
@@ -81,12 +86,12 @@ hidden. Hyprland's `openlayer`/`closelayer` events are matched against the exact
 `omarchy-polkit` namespace; the service reads a fresh layer inventory after
 startup and layer transitions to account for multiple monitors.
 
-By default, Chordlight does not persist shortcut events. If the user enables
-**Debug trace** in the panel, the shell service writes timestamps, guide state
-before and after each transition, modifier masks, and the display combo plus
-opaque ID for matched registered shortcuts. The trace is local, uses
+By default, Chordlight does not persist shortcut events. If `debug.trace_enabled`
+is set to `true` in the TOML settings file, the shell service writes
+timestamps, guide state before and after each transition, modifier masks, and
+the display combo plus opaque ID for matched registered shortcuts. The trace is local, uses
 `0600` files in a `0700` directory, and rotates at 512 KB with two backups.
-Turning Debug trace off stops new records; it does not delete existing trace
+Setting it to `false` stops new records; it does not delete existing trace
 files.
 
 Chordlight never persists typed text, passwords, unmatched keys, raw keycodes,

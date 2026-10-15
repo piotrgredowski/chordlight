@@ -13,10 +13,11 @@ if rg -q 'setPrefixRowVisible|prefixRowVisible|clearHintHistory' "$root/Service.
   echo "presentation changes must not mutate guide history state" >&2
   exit 1
 fi
-grep -q 'anchors { bottom: true; left: true; right: true }' "$root/SuperGuide.qml"
+grep -q 'top: root.displayAtTop' "$root/SuperGuide.qml"
+grep -q 'bottom: !root.displayAtTop' "$root/SuperGuide.qml"
 grep -q 'mask: Region {}' "$root/SuperGuide.qml"
-grep -q 'text: String(modelData || "").toUpperCase()' "$root/SuperGuide.qml"
-grep -q 'text: "+"' "$root/SuperGuide.qml"
+grep -q 'text: String(modelData || "").toUpperCase()' "$root/ChordHintPill.qml"
+grep -q 'text: "+"' "$root/ChordHintPill.qml"
 if rg -q 'canopyLayout|guideBackdrop|HoverHandler|overflowPill|guideTopOffset|gradient: Gradient' "$root/SuperGuide.qml"; then
   echo "the compact hint must not retain the canopy, backdrop, or top-offset UI" >&2
   exit 1

@@ -131,6 +131,7 @@ TestCase {
     compare(Model.normalizeDelay(80), 80)
     compare(Model.normalizeDelay("150"), 150)
     compare(Model.normalizeDelay("disabled"), -1)
+    compare(Model.normalizeDelay(-1), -1)
     compare(Model.normalizeDelay(99), 0)
     compare(Model.normalizeFullscreen(true), true)
     compare(Model.normalizeFullscreen("true"), false)
@@ -152,25 +153,98 @@ TestCase {
     compare(Model.settingsFor({}, "io.github.zaremb.chordlight").guideDelayMs, undefined)
   }
 
-  function test_settingUpdatePreservesExistingEntry() {
-    var original = {
-      id: "io.github.zaremb.chordlight",
+  function test_settingsTomlDefaultsAndRoundTrip() {
+    var defaults = Model.normalizeSettings({})
+    compare(defaults.display.position, "bottom-center")
+    compare(defaults.display.descriptionMode, "inline")
+    compare(defaults.display.pillSize, "medium")
+    compare(defaults.display.stackGap, "default")
+    compare(defaults.display.historyCount, 2)
+    compare(defaults.display.historyDurationSeconds, 3)
+    compare(defaults.display.historyTransparency, "balanced")
+    compare(defaults.guide.delayMs, 0)
+    compare(defaults.guide.keys.super, true)
+    compare(defaults.debug.traceEnabled, false)
+
+    var source = Model.normalizeSettings({
+      display: {
+        position: "top-right",
+        descriptionMode: "below",
+        pillSize: "large",
+        stackGap: "tight",
+        historyCount: 1,
+        historyDurationSeconds: 10,
+        historyTransparency: "faded"
+      },
+      guide: {
+        delayMs: -1,
+        showInFullscreen: true,
+        keys: { super: false, shift: true, ctrl: false, alt: true }
+      },
+      debug: { traceEnabled: true }
+    })
+    var toml = Model.serializeSettingsToml(source)
+    verify(toml.indexOf("[display]") !== -1)
+    verify(toml.indexOf("[guide.keys]") !== -1)
+    var result = Model.parseSettingsToml(toml)
+    verify(result.ok)
+    compare(result.settings.display.position, "top-right")
+    compare(result.settings.display.descriptionMode, "below")
+    compare(result.settings.display.pillSize, "large")
+    compare(result.settings.display.stackGap, "tight")
+    compare(result.settings.display.historyCount, 1)
+    compare(result.settings.display.historyDurationSeconds, 10)
+    compare(result.settings.display.historyTransparency, "faded")
+    compare(result.settings.guide.delayMs, -1)
+    compare(result.settings.guide.showInFullscreen, true)
+    compare(result.settings.guide.keys.super, false)
+    compare(result.settings.guide.keys.alt, true)
+    compare(result.settings.debug.traceEnabled, true)
+  }
+
+  function test_settingsTomlToleratesCommentsAndUnknownKeys() {
+    var toml = [
+      "schema_version = 1 # current format",
+      "future_option = true",
+      "[display]",
+      "position = 'top-center' # single quoted TOML string",
+      "extra = [1, 2, 3]",
+      "[guide]",
+      "show_in_fullscreen = true"
+    ].join("\n")
+    var result = Model.parseSettingsToml(toml)
+    verify(result.ok)
+    compare(result.settings.display.position, "top-center")
+    compare(result.settings.display.historyCount, 2)
+    compare(result.settings.guide.showInFullscreen, true)
+  }
+
+  function test_settingsTomlRejectsMalformedKnownValuesAndVersions() {
+    verify(!Model.parseSettingsToml("[display\nposition = \\\"top-left\\\"").ok)
+    verify(!Model.parseSettingsToml("[display]\nposition = 123").ok)
+    verify(!Model.parseSettingsToml("[display]\nhistory_count = 3").ok)
+    verify(!Model.parseSettingsToml('[display]\nposition = "left-center"').ok)
+    verify(!Model.parseSettingsToml("[guide]\ndelay_ms = 60").ok)
+    verify(!Model.parseSettingsToml("schema_version = 2").ok)
+  }
+
+  function test_legacySettingsImportKeepsOldGuidePreferences() {
+    var legacy = Model.settingsFromLegacyEntry({
       guideDelayMs: 150,
       showInFullscreen: true,
       guideSuperEnabled: false,
       guideShiftEnabled: true,
-      extensionOption: { keep: true }
-    }
-    var updated = Model.updatedSettingsEntry(original, { guideDelayMs: 80 }, "io.github.zaremb.chordlight")
-    compare(updated.id, original.id)
-    compare(updated.guideDelayMs, 80)
-    compare(updated.showInFullscreen, true)
-    compare(updated.guideSuperEnabled, false)
-    compare(updated.guideShiftEnabled, true)
-    compare(updated.extensionOption.keep, true)
-    compare(original.guideDelayMs, 150)
-    var cannotReplaceId = Model.updatedSettingsEntry(original, { id: "wrong-plugin" }, "io.github.zaremb.chordlight")
-    compare(cannotReplaceId.id, original.id)
+      guideCtrlEnabled: false,
+      guideAltEnabled: true,
+      debugModeEnabled: true
+    })
+    compare(legacy.display.position, "bottom-center")
+    compare(legacy.display.historyCount, 2)
+    compare(legacy.guide.delayMs, 150)
+    compare(legacy.guide.showInFullscreen, true)
+    compare(legacy.guide.keys.super, false)
+    compare(legacy.guide.keys.ctrl, false)
+    compare(legacy.debug.traceEnabled, true)
   }
 
   function test_fullscreenAndEventClassification() {

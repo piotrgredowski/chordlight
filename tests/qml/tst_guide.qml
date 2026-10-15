@@ -161,6 +161,43 @@ TestCase {
     compare(releasedRows[0].phase, "history")
   }
 
+  function test_displaySettingsControlHistoryCountAndOpacity() {
+    var source = catalog()
+    var history = [
+      { id: source.bindings[1].id, sequence: 2, expiresAt: 4000 },
+      { id: source.bindings[0].id, sequence: 1, expiresAt: 3000 }
+    ]
+
+    var disabled = GuideModel.hintRows(
+      source, [], history, "SUPER", "SUPER", false,
+      { historyCount: 0, historyTransparency: "clear" })
+    compare(disabled.length, 0)
+
+    var oneChord = GuideModel.hintRows(
+      source, [], history, "SUPER", "SUPER", false,
+      { historyCount: 1, historyTransparency: "clear" })
+    compare(oneChord.length, 1)
+    compare(oneChord[0].binding.id, source.bindings[1].id)
+    compare(oneChord[0].opacity, 0.86)
+    compare(oneChord[0].scale, 0.8)
+
+    var twoChords = GuideModel.hintRows(
+      source, [], history, "SUPER", "SUPER", false,
+      { historyCount: 2, historyTransparency: "faded" })
+    compare(twoChords.length, 2)
+    compare(twoChords[0].binding.id, source.bindings[0].id)
+    compare(twoChords[0].opacity, 0.3)
+    compare(twoChords[1].binding.id, source.bindings[1].id)
+    compare(twoChords[1].opacity, 0.52)
+
+    compare(GuideModel.pillSizeFactor("small"), 0.8)
+    compare(GuideModel.pillSizeFactor("medium"), 1)
+    compare(GuideModel.pillSizeFactor("large"), 1.2)
+    compare(GuideModel.stackGapUnits("tight"), 0)
+    compare(GuideModel.stackGapUnits("default"), 8)
+    compare(GuideModel.stackGapUnits("loose"), 16)
+  }
+
   function test_suppressionAndDelayModes() {
     var state = {
       integrationState: "enabled",

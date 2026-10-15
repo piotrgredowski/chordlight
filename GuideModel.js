@@ -22,6 +22,33 @@ function comboParts(combo) {
   return result
 }
 
+function pillSizeFactor(size) {
+  if (size === "small") return 0.8
+  if (size === "large") return 1.2
+  return 1
+}
+
+function stackGapUnits(gap) {
+  if (gap === "tight") return 0
+  if (gap === "loose") return 16
+  return 8
+}
+
+function historyOpacity(transparency, age) {
+  var profiles = {
+    faded: [0.30, 0.52],
+    balanced: [0.45, 0.72],
+    clear: [0.62, 0.86]
+  }
+  var profile = profiles[String(transparency || "balanced")] || profiles.balanced
+  var ageIndex = Math.max(0, Number(age) || 0)
+  return profile[Math.max(0, profile.length - 1 - ageIndex)]
+}
+
+function historyScale(age) {
+  return Number(age) <= 0 ? 0.8 : 0.6
+}
+
 function hintBinding(catalog, activeIds, recentEntries) {
   var byId = catalog && catalog.byId ? catalog.byId : null
   if (!byId) return null
@@ -55,10 +82,15 @@ function activeHintBinding(catalog, activeIds) {
   return null
 }
 
-function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPrefix) {
+function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPrefix, settings) {
   var byId = catalog && catalog.byId ? catalog.byId : null
   var rows = []
   if (!byId) return rows
+  var options = settings && typeof settings === "object" ? settings : {}
+  var requestedHistoryCount = Number(options.historyCount)
+  if (!isFinite(requestedHistoryCount)) requestedHistoryCount = 2
+  var historyLimit = Math.max(0, Math.min(2, Math.floor(requestedHistoryCount)))
+  var transparency = String(options.historyTransparency || "balanced")
 
   function eligibleBinding(id) {
     var binding = byId[String(id || "")]
@@ -89,7 +121,6 @@ function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPr
     && hasMatchingPrefix(catalog, mask, guideRoot)
 
   var recent = Array.isArray(recentEntries) ? recentEntries : []
-  var historyLimit = Math.max(0, 3 - (activeBinding || prefixBinding ? 1 : 0))
   var recentCount = Math.min(recent.length, historyLimit)
   for (var historyIndex = recentCount - 1; historyIndex >= 0; historyIndex--) {
     var entry = recent[historyIndex]
@@ -133,8 +164,6 @@ function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPr
   }
 
   var historyCountInRows = rows.length - (activeBinding || prefixBinding ? 1 : 0)
-  var historyOpacityByAge = [0.72, 0.45, 0.45]
-  var historyScaleByAge = [0.8, 0.6, 0.6]
   for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     var isCurrentRow = rows[rowIndex].active === true
       || String(rows[rowIndex].key || "").indexOf("prefix:") === 0
@@ -144,10 +173,8 @@ function hintRows(catalog, activeEntries, recentEntries, mask, guideRoot, showPr
       continue
     }
     var historyAge = historyCountInRows - rowIndex - 1
-    rows[rowIndex].opacity = historyOpacityByAge[
-      Math.min(historyAge, historyOpacityByAge.length - 1)]
-    rows[rowIndex].scale = historyScaleByAge[
-      Math.min(historyAge, historyScaleByAge.length - 1)]
+    rows[rowIndex].opacity = historyOpacity(transparency, historyAge)
+    rows[rowIndex].scale = historyScale(historyAge)
   }
   return rows
 }

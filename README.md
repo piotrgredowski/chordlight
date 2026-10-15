@@ -4,7 +4,8 @@
 
 Chordlight is a local-first guide for your registered Omarchy keyboard
 shortcuts. Hold a configured modifier to see a small outlined hint for matching
-shortcuts at the bottom of the focused monitor, without changing how they work.
+shortcuts at a configurable position on the focused monitor, without changing
+how they work.
 
 ![Chordlight showing SUPER + SHIFT + S and its “Screenshot” description in an accent-outlined pill at the bottom of the screen.](assets/screenshots/chordlight.png)
 
@@ -40,23 +41,64 @@ with that key. After the configured delay, Chordlight shows the held modifier
 when it prefixes a registered shortcut. While a matching shortcut key is held,
 the bottom hint shows its complete chord, such as `SUPER + SPACE`. After
 release, the chord and its registered description remain in a short visual
-history for up to 3 seconds. The
-guide stacks up to three pills from oldest at the top to newest at the bottom;
-a currently held chord or matching modifier prefix occupies the bottom row. A
-new prefix appears after the configured guide delay while existing history
-stays visible. If the current row needs a slot, the oldest history entry is
-dropped. Unmatched keys are not shown. The outlined hints sit at the bottom of
-the focused monitor.
+history for up to 3 seconds. The guide shows the selected number of completed
+chords above the current chord or matching modifier prefix, with each history
+entry expiring independently. By default it keeps two completed chords, ordered
+oldest at the top and newest at the bottom. Unmatched keys are not shown.
 
-The panel lets you:
+The panel preview reflects the live guide and lets you choose its screen
+position, description placement, pill size, stack spacing, history count,
+history duration, and how strongly older chords fade. A duration change applies
+to chords completed afterward; chords already in history keep their current
+countdown. Setting history to **Off** clears completed chords while leaving a
+held chord visible.
 
-- choose each guide root independently;
-- choose how long a key must be held before the guide appears;
-- keep guides hidden over fullscreen apps by default, or enable them there;
-- opt in to a local debug trace of guide events and state transitions.
+## Settings file
 
-Turning off a guide root hides only that overlay. It never disables the
-underlying shortcut.
+Chordlight stores preferences in:
+
+```text
+${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/chordlight.toml
+```
+
+The panel controls are saved there and update the guide immediately. The file
+also holds advanced settings that are not shown in the panel: guide delay,
+which modifier keys open the guide, fullscreen behavior, and debug tracing.
+Edit those values directly in the TOML file; Chordlight watches it and applies
+valid changes as they are saved. On first launch, existing guide and debug
+preferences from the old Omarchy shell configuration are imported once.
+
+The file contains these sections:
+
+```toml
+schema_version = 1
+
+[display]
+position = "bottom-center"          # top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
+description_mode = "inline"         # inline, below, hidden
+pill_size = "medium"                # small, medium, large
+stack_gap = "default"               # tight, default, loose
+history_count = 2                   # 0, 1, or 2
+history_duration_seconds = 3        # 1, 2, 3, 5, or 10
+history_transparency = "balanced"  # faded, balanced, clear
+
+[guide]
+delay_ms = 0                        # -1 disables the guide; otherwise 0, 80, 150, or 250
+show_in_fullscreen = false
+
+[guide.keys]
+super = true
+shift = true
+ctrl = true
+alt = true
+
+[debug]
+trace_enabled = false
+```
+
+Invalid settings leave the guide at its last valid values and are reported in
+the panel. Unknown TOML keys are ignored so future versions can add settings
+without breaking older installations.
 
 ## Privacy and local files
 
@@ -65,15 +107,16 @@ a brief, in-memory visual chord history so released shortcuts can remain on
 screen for up to 3 seconds. Chordlight has no network client and does not use
 `/dev/input`.
 
-The panel's optional **Debug trace** mode records timestamps, matched
-registered shortcut chords, and guide state before and after each transition.
+When `debug.trace_enabled` is set to `true` in the settings file, Chordlight
+records timestamps, matched registered shortcut chords, and guide state before
+and after each transition.
 It does not record typed text, unmatched keys, descriptions, dispatcher
 arguments, or window details. The trace stays on this machine, is limited to
 512 KB per file with two rotated copies, and uses private file permissions.
 Each JSONL line is one event: matched chords have a press/release phase, while
 guide transitions include their cause and state snapshots with phase, root,
-modifier mask, pending chords, and history sequence/deadline data. Turn it off
-in the panel to stop recording.
+modifier mask, pending chords, and history sequence/deadline data. Set it to
+`false` to stop recording.
 
 Its fresh, independent runtime state lives here:
 

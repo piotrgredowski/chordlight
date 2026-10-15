@@ -24,6 +24,13 @@ Item {
   readonly property var activeHintIds: GuideState.pendingIds(guideState)
   readonly property var activeHintEntries: guideState.pendingEntries
   readonly property var recentHintEntries: guideState.history
+  property string displayPosition: "bottom-center"
+  property string descriptionMode: "inline"
+  property string pillSize: "medium"
+  property string stackGap: "default"
+  property int historyCount: 2
+  property int historyDurationSeconds: 3
+  property string historyTransparency: "balanced"
   property int guideDelayMs: 0
   property bool showInFullscreen: false
   property bool guideSuperEnabled: true
@@ -35,6 +42,11 @@ Item {
   property string activeDebugTraceEntry: ""
   property int debugTraceWriteFailures: 0
   property int debugTraceDroppedEntries: 0
+  property string settingsStatus: "loading"
+  property string settingsError: ""
+  property bool settingsLoaded: false
+  property bool settingsDirectoryReady: false
+  property bool settingsFileMissing: false
   // Suppression starts active until both independent sources have answered.
   // Unknown state must never briefly expose the guide over a protected surface.
   property bool desktopLocked: true
@@ -80,6 +92,9 @@ Item {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")
   readonly property string stateDir: stateHome + "/omarchy/chordlight"
+  readonly property string configHome: Quickshell.env("XDG_CONFIG_HOME") || (home + "/.config")
+  readonly property string settingsDirectory: configHome + "/omarchy"
+  readonly property string settingsPath: settingsDirectory + "/chordlight.toml"
 
   function localPath(url) {
     var value = String(url || "")
@@ -260,7 +275,10 @@ Item {
 
   function transitionGuide(event) {
     var previous = guideState
-    var next = GuideState.transition(previous, event)
+    var next = GuideState.transition(previous, event, {
+      historyCount: historyCount,
+      historyDurationMs: historyDurationSeconds * 1000
+    })
     root.recordGuideTransition(event, previous, next)
     guideState = next
     root.scheduleHintHistoryExpiry()
@@ -365,6 +383,28 @@ Item {
     onTriggered: root.expireHintHistory()
   }
 
+  Timer {
+    id: settingsSaveTimer
+    interval: 150
+    repeat: false
+    onTriggered: root.saveSettings()
+  }
+
+  Process {
+    id: settingsDirectoryProcess
+    command: ["mkdir", "-p", root.settingsDirectory]
+    running: false
+    onExited: function(exitCode) {
+      if (exitCode !== 0) {
+        root.settingsStatus = "error"
+        root.settingsError = "Could not create the Chordlight settings directory."
+        return
+      }
+      root.settingsDirectoryReady = true
+      settingsFile.reload()
+    }
+  }
+
   function recordGuideVisible() {
     if (pendingGuideReceivedMs <= 0) return
     var next = latencySamples.slice()
@@ -429,44 +469,150 @@ Item {
     return Model.settingsFor(shell ? shell.barConfig : null, root.moduleName)
   }
 
-  function syncSettings() {
-    var entry = settingsEntry()
-    guideDelayMs = Model.normalizeDelay(entry.guideDelayMs)
-    showInFullscreen = Model.normalizeFullscreen(entry.showInFullscreen)
-    guideSuperEnabled = Model.normalizeGuideRoot(entry.guideSuperEnabled)
-    guideShiftEnabled = Model.normalizeGuideRoot(entry.guideShiftEnabled)
-    guideCtrlEnabled = Model.normalizeGuideRoot(entry.guideCtrlEnabled)
-    guideAltEnabled = Model.normalizeGuideRoot(entry.guideAltEnabled)
-    applyDebugModeEnabled(entry.debugModeEnabled)
+  function currentSettingsObject() {
+    return Model.normalizeSettings({
+      display: {
+        position: displayPosition,
+        descriptionMode: descriptionMode,
+        pillSize: pillSize,
+        stackGap: stackGap,
+        historyCount: historyCount,
+        historyDurationSeconds: historyDurationSeconds,
+        historyTransparency: historyTransparency
+      },
+      guide: {
+        delayMs: guideDelayMs,
+        showInFullscreen: showInFullscreen,
+        keys: {
+          super: guideSuperEnabled,
+          shift: guideShiftEnabled,
+          ctrl: guideCtrlEnabled,
+          alt: guideAltEnabled
+        }
+      },
+      debug: { traceEnabled: debugModeEnabled }
+    })
+  }
+
+  function applySettings(value) {
+    var next = Model.normalizeSettings(value)
+    var previousHistoryCount = historyCount
+    displayPosition = next.display.position
+    descriptionMode = next.display.descriptionMode
+    pillSize = next.display.pillSize
+    stackGap = next.display.stackGap
+    historyCount = next.display.historyCount
+    historyDurationSeconds = next.display.historyDurationSeconds
+    historyTransparency = next.display.historyTransparency
+    guideDelayMs = next.guide.delayMs
+    showInFullscreen = next.guide.showInFullscreen
+    guideSuperEnabled = next.guide.keys.super
+    guideShiftEnabled = next.guide.keys.shift
+    guideCtrlEnabled = next.guide.keys.ctrl
+    guideAltEnabled = next.guide.keys.alt
+    applyDebugModeEnabled(next.debug.traceEnabled)
     if (activeGuideRoot !== "" && !guideRootEnabled(activeGuideRoot)) {
       clearGuide("guide-root-disabled-by-setting")
     }
+    if (previousHistoryCount !== historyCount)
+      root.transitionGuide({ type: "settingsChanged", at: Date.now() })
   }
 
-  function persistSettings(changes) {
-    if (!shell || typeof shell.updateEntryInline !== "function") return false
-    var next = Model.updatedSettingsEntry(settingsEntry(), changes, root.moduleName)
-    return shell.updateEntryInline(root.moduleName, next) !== false
+  function loadSettingsToml(raw) {
+    var result = Model.parseSettingsToml(raw)
+    if (!result.ok) {
+      settingsLoaded = true
+      settingsStatus = "error"
+      settingsError = "Could not read Chordlight settings: " + result.error
+      return false
+    }
+    settingsFileMissing = false
+    settingsLoaded = true
+    settingsError = ""
+    applySettings(result.settings)
+    settingsStatus = "saved"
+    return true
+  }
+
+  function beginSettingsMigration() {
+    if (!settingsFileMissing || !settingsDirectoryReady || !shell || settingsLoaded) return false
+    settingsLoaded = true
+    settingsError = ""
+    applySettings(Model.settingsFromLegacyEntry(settingsEntry()))
+    settingsStatus = "saving"
+    settingsFile.setText(Model.serializeSettingsToml(currentSettingsObject()))
+    return true
+  }
+
+  function handleSettingsLoadFailure(errorName) {
+    if (!settingsDirectoryReady) return
+    if (String(errorName) === "FileNotFound") {
+      settingsFileMissing = true
+      if (!beginSettingsMigration()) settingsStatus = "loading"
+      return
+    }
+    settingsLoaded = true
+    settingsStatus = "error"
+    settingsError = "Could not load settings (" + String(errorName) + ")."
+  }
+
+  function queueSettingsSave() {
+    if (!settingsLoaded) return false
+    settingsError = ""
+    settingsStatus = "saving"
+    settingsSaveTimer.restart()
+    return true
+  }
+
+  function saveSettings() {
+    if (!settingsLoaded || !settingsDirectoryReady) return false
+    settingsFile.setText(Model.serializeSettingsToml(currentSettingsObject()))
+    return true
+  }
+
+  function setDisplaySetting(name, value) {
+    if (!settingsLoaded) return false
+    var next = currentSettingsObject()
+    var propertyName = String(name || "")
+    if (propertyName === "position") next.display.position = value
+    else if (propertyName === "descriptionMode") next.display.descriptionMode = value
+    else if (propertyName === "pillSize") next.display.pillSize = value
+    else if (propertyName === "stackGap") next.display.stackGap = value
+    else if (propertyName === "historyCount") next.display.historyCount = value
+    else if (propertyName === "historyDurationSeconds") next.display.historyDurationSeconds = value
+    else if (propertyName === "historyTransparency") next.display.historyTransparency = value
+    else return false
+
+    var normalized = Model.normalizeSettings(next)
+    if (normalized.display[propertyName] !== value) return false
+    if (normalized.display[propertyName] === currentSettingsObject().display[propertyName]) return false
+    applySettings(normalized)
+    queueSettingsSave()
+    return true
+  }
+
+  function persistSettings() {
+    return queueSettingsSave()
   }
 
   function setGuideDelayMs(value) {
     var next = Model.normalizeDelay(value)
     if (next === guideDelayMs) return false
     guideDelayMs = next
-    return persistSettings({ guideDelayMs: next })
+    return persistSettings()
   }
 
   function setShowInFullscreen(value) {
     var next = Model.normalizeFullscreen(value)
     if (next === showInFullscreen) return false
     showInFullscreen = next
-    return persistSettings({ showInFullscreen: next })
+    return persistSettings()
   }
 
   function setDebugModeEnabled(value) {
     var next = value === true
     if (!applyDebugModeEnabled(next)) return false
-    return persistSettings({ debugModeEnabled: next })
+    return persistSettings()
   }
 
   function guideRootEnabled(rootName) {
@@ -479,12 +625,8 @@ Item {
 
   function setGuideRootEnabled(rootName, value) {
     var next = Model.normalizeGuideRoot(value)
-    var setting = ""
-    if (rootName === "SUPER") setting = "guideSuperEnabled"
-    else if (rootName === "SHIFT") setting = "guideShiftEnabled"
-    else if (rootName === "CTRL") setting = "guideCtrlEnabled"
-    else if (rootName === "ALT") setting = "guideAltEnabled"
-    else return false
+    if (rootName !== "SUPER" && rootName !== "SHIFT"
+        && rootName !== "CTRL" && rootName !== "ALT") return false
 
     if (guideRootEnabled(rootName) === next) return false
     if (rootName === "SUPER") guideSuperEnabled = next
@@ -494,9 +636,7 @@ Item {
     if (!next && activeGuideRoot === rootName) {
       clearGuide("guide-root-disabled")
     }
-    var changes = {}
-    changes[setting] = next
-    return persistSettings(changes)
+    return persistSettings()
   }
 
   function endGuide() {
@@ -1098,10 +1238,23 @@ Item {
     function onRawEvent(event) { root.handleRawEvent(event) }
   }
 
-  Connections {
-    target: root.shell
-    ignoreUnknownSignals: true
-    function onBarConfigChanged() { root.syncSettings() }
+  FileView {
+    id: settingsFile
+    path: root.settingsPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadSettingsToml(text())
+    onLoadFailed: function(error) { root.handleSettingsLoadFailure(FileViewError.toString(error)) }
+    onSaved: {
+      root.settingsStatus = "saved"
+      root.settingsError = ""
+    }
+    onSaveFailed: function(error) {
+      root.settingsStatus = "error"
+      root.settingsError = "Could not save Chordlight settings (" + FileViewError.toString(error) + ")."
+    }
+    onFileChanged: reload()
   }
 
   IpcHandler {
@@ -1111,7 +1264,7 @@ Item {
   }
 
   Component.onCompleted: Qt.callLater(function() {
-    root.syncSettings()
+    settingsDirectoryProcess.running = true
     root.inspectIntegration()
     manualSnippetProcess.command = [root.controllerPath, "manual-snippet"]
     manualSnippetProcess.running = true
@@ -1122,7 +1275,7 @@ Item {
   })
 
   onShellChanged: Qt.callLater(function() {
-    root.syncSettings()
+    root.beginSettingsMigration()
   })
 
   SuperGuide {

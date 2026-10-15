@@ -2,9 +2,9 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-runtime_files="$root/bridge.lua $root/Service.qml $root/Panel.qml $root/SuperGuide.qml $root/BarWidget.qml $root/ServiceModel.js $root/GuideModel.js $root/scripts/bridge-control $root/scripts/debug-trace $root/scripts/generate-catalog"
+runtime_files="$root/bridge.lua $root/Service.qml $root/Panel.qml $root/SuperGuide.qml $root/ChordHintPill.qml $root/BarWidget.qml $root/ServiceModel.js $root/GuideModel.js $root/scripts/bridge-control $root/scripts/debug-trace $root/scripts/generate-catalog"
 
-for entry in manifest.json BarWidget.qml Panel.qml Service.qml SuperGuide.qml bridge.lua ServiceModel.js GuideModel.js scripts/bridge-control scripts/debug-trace scripts/generate-catalog; do
+for entry in manifest.json BarWidget.qml Panel.qml Service.qml SuperGuide.qml ChordHintPill.qml bridge.lua ServiceModel.js GuideModel.js scripts/bridge-control scripts/debug-trace scripts/generate-catalog; do
   test -f "$root/$entry"
 done
 test -s "$root/assets/screenshots/chordlight.png"
@@ -31,7 +31,7 @@ fi
 
 qmllint -I /usr/share/omarchy/shell \
   "$root/BarWidget.qml" "$root/Panel.qml" "$root/Service.qml" \
-  "$root/SuperGuide.qml"
+  "$root/SuperGuide.qml" "$root/ChordHintPill.qml"
 luac -p "$root/bridge.lua"
 
 # No activity history, XP system, or full-browser overlay may remain in a

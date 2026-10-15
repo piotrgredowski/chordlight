@@ -25,20 +25,19 @@ Item {
     showInFullscreen: service.showInFullscreen
   }) : false
   readonly property int delayValue: service ? Number(service.guideDelayMs) : -1
-  readonly property int keyFontSize: Math.max(26, Style.font.displayLarge * 0.95)
-  readonly property int pillHorizontalPadding: Style.space(32)
+  readonly property real pillSizeFactor: GuideModel.pillSizeFactor(service ? service.pillSize : "medium")
+  readonly property int keyFontSize: Math.max(26, Style.font.displayLarge * 0.95) * pillSizeFactor
   readonly property int pillScreenGutter: Style.space(24)
-  readonly property int maximumHintRows: 3
-  readonly property int hintRowSpacing: Style.space(8)
+  readonly property int maximumHintRows: Math.max(1, Math.min(2, Number(service ? service.historyCount : 2)) + 1)
+  readonly property int hintRowSpacing: Style.space(GuideModel.stackGapUnits(service ? service.stackGap : "default"))
   readonly property int hintFadeDurationMs: 180
   readonly property int hintMoveDurationMs: 180
   readonly property real hintPillHeight: pillHeightSample.implicitHeight
-    + Style.space(10) + Style.space(18)
   readonly property real maximumHintStackHeight: maximumHintRows * hintPillHeight
     + (maximumHintRows - 1) * hintRowSpacing
-  readonly property color pillFill: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.84)
-  readonly property color pillOutline: Color.accent
-  readonly property color keyOutline: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 0.9)
+  readonly property string displayPosition: service ? String(service.displayPosition || "bottom-center") : "bottom-center"
+  readonly property string displayDescriptionMode: service ? String(service.descriptionMode || "inline") : "inline"
+  readonly property bool displayAtTop: displayPosition.indexOf("top-") === 0
   readonly property string currentMask: service && String(service.activeModifiers || "") !== ""
     ? String(service.activeModifiers)
     : service && String(service.activeGuideRoot || "") !== "" ? String(service.activeGuideRoot) : "SUPER"
@@ -53,7 +52,11 @@ Item {
     service && Array.isArray(service.recentHintEntries) ? service.recentHintEntries : [],
     currentMask,
     currentGuideRoot,
-    showPrefixRow)
+    showPrefixRow,
+    {
+      historyCount: service ? Number(service.historyCount) : 2,
+      historyTransparency: service ? String(service.historyTransparency || "balanced") : "balanced"
+    })
   readonly property bool hasHintHistory: service && Array.isArray(service.recentHintEntries)
     && service.recentHintEntries.length > 0
   readonly property bool hintVisible: eligible && hintRows.length > 0
@@ -104,8 +107,11 @@ Item {
       var visualId = String(row.visualId || row.key || "")
       if (visualId === "") continue
       var modelIndex = hintPresentationIndex(visualId)
-      var targetY = maximumHintStackHeight - hintPillHeight
-        - (visibleCount - 1 - (rowIndex - firstRow)) * (hintPillHeight + hintRowSpacing)
+      var stackRowIndex = rowIndex - firstRow
+      var targetY = displayAtTop
+        ? stackRowIndex * (hintPillHeight + hintRowSpacing)
+        : maximumHintStackHeight - hintPillHeight
+          - (visibleCount - 1 - stackRowIndex) * (hintPillHeight + hintRowSpacing)
       var values = {
         visualId: visualId,
         rowCombo: String(row.combo || ""),
@@ -113,7 +119,7 @@ Item {
         phase: String(row.phase || (row.active === true ? "current" : "history")),
         targetY: targetY,
         targetOpacity: Math.max(0, Math.min(1, Number(row.opacity === undefined ? 1 : row.opacity))),
-        targetScale: Math.max(0.1, Number(row.scale === undefined ? 1 : row.scale)),
+        targetScale: Math.max(0.1, Number(row.scale === undefined ? 1 : row.scale) * pillSizeFactor),
         exiting: false
       }
 
@@ -132,15 +138,21 @@ Item {
   onHintRowsChanged: syncHintPresentation()
   onEligibleChanged: syncHintPresentation()
 
-  Text {
+  ChordHintPill {
     id: pillHeightSample
     visible: false
-    text: "M"
-    color: "transparent"
-    font.family: Style.font.family
-    font.pixelSize: root.keyFontSize
-    font.weight: Font.Medium
-    font.letterSpacing: Style.space(1)
+    combo: "SUPER + SHIFT + K"
+    description: "Sample shortcut"
+    descriptionMode: root.displayDescriptionMode
+    sizeFactor: root.pillSizeFactor
+  }
+
+  function pillX(pillWidth, scale, stackWidth) {
+    var visualWidth = pillWidth * scale
+    var x = displayPosition.endsWith("-left") ? 0
+      : displayPosition.endsWith("-right") ? stackWidth - visualWidth
+      : (stackWidth - visualWidth) / 2
+    return x - (1 - scale) * pillWidth / 2
   }
 
   function focusedScreenName() {
@@ -197,6 +209,12 @@ Item {
     function onCredentialPromptActiveChanged() { root.syncVisibility() }
     function onActiveWindowFullscreenChanged() { root.syncVisibility() }
     function onShowInFullscreenChanged() { root.syncVisibility() }
+    function onDisplayPositionChanged() { root.syncHintPresentation() }
+    function onDescriptionModeChanged() { root.syncHintPresentation() }
+    function onPillSizeChanged() { root.syncHintPresentation() }
+    function onStackGapChanged() { root.syncHintPresentation() }
+    function onHistoryCountChanged() { root.syncHintPresentation() }
+    function onHistoryTransparencyChanged() { root.syncHintPresentation() }
   }
 
   Connections {
@@ -228,7 +246,12 @@ Item {
         color: "transparent"
         implicitHeight: root.maximumHintStackHeight + Style.space(36)
         exclusionMode: ExclusionMode.Ignore
-        anchors { bottom: true; left: true; right: true }
+        anchors {
+          top: root.displayAtTop
+          bottom: !root.displayAtTop
+          left: true
+          right: true
+        }
 
         WlrLayershell.namespace: "chordlight-guide"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -282,16 +305,18 @@ Item {
 
           Item {
             id: hintStack
-            width: parent.width
+            width: Math.max(0, parent.width - root.pillScreenGutter * 2)
             height: root.maximumHintStackHeight
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Style.space(18)
+            x: root.displayPosition.endsWith("-left") ? root.pillScreenGutter
+              : root.displayPosition.endsWith("-right")
+                ? parent.width - width - root.pillScreenGutter
+                : (parent.width - width) / 2
+            y: root.displayAtTop ? Style.space(18) : parent.height - height - Style.space(18)
 
             Repeater {
               model: hintPresentationModel
 
-              delegate: BorderSurface {
+              delegate: ChordHintPill {
                 id: hintPill
                 required property int index
                 required property string visualId
@@ -306,23 +331,24 @@ Item {
                 property bool initialized: false
                 property real renderedOpacity: 0
                 property real renderedScale: 0.85
-                readonly property var rowKeys: GuideModel.comboParts(rowCombo)
 
                 visible: true
-                x: (hintStack.width - width) / 2
+                combo: rowCombo
+                description: rowDescription
+                descriptionMode: root.displayDescriptionMode
+                sizeFactor: root.pillSizeFactor
+                maxWidth: Math.max(0, screenHost.width - root.pillScreenGutter * 2)
+                x: root.pillX(width, renderedScale, hintStack.width)
                 y: targetY
                 z: targetY
-                width: Math.max(0, Math.min(
-                  contentRow.implicitWidth + root.pillHorizontalPadding,
-                  screenHost.width - root.pillScreenGutter * 2))
+                width: Math.max(0, Math.min(implicitWidth, maxWidth))
                 height: root.hintPillHeight
-                implicitWidth: width
-                implicitHeight: height
                 opacity: renderedOpacity
                 scale: renderedScale
-                color: root.pillFill
-                borderSpec: Border.flat(root.pillOutline, Math.max(2, Style.space(2)))
-                radius: height / 2
+
+                Behavior on x {
+                  NumberAnimation { duration: root.hintMoveDurationMs; easing.type: Easing.OutCubic }
+                }
 
                 Behavior on y {
                   NumberAnimation { duration: root.hintMoveDurationMs; easing.type: Easing.OutCubic }
@@ -365,75 +391,6 @@ Item {
                   interval: root.hintFadeDurationMs
                   repeat: false
                   onTriggered: root.removeHintPresentation(hintPill.visualId)
-                }
-
-                Row {
-                  id: contentRow
-                  anchors.centerIn: parent
-                  spacing: Style.space(10)
-
-                  Row {
-                    id: keyRow
-                    spacing: Style.space(8)
-
-                    Repeater {
-                      model: hintPill.rowKeys
-
-                      delegate: Row {
-                        required property string modelData
-                        required property int index
-                        spacing: Style.space(6)
-
-                        Text {
-                          visible: index > 0
-                          text: "+"
-                          color: Color.accent
-                          font.family: Style.font.family
-                          font.pixelSize: root.keyFontSize * 0.8
-                          font.weight: Font.Medium
-                          anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        BorderSurface {
-                          width: keyLabel.implicitWidth + Style.space(20)
-                          height: keyLabel.implicitHeight + Style.space(10)
-                          implicitWidth: width
-                          implicitHeight: height
-                          color: "transparent"
-                          borderSpec: Border.flat(root.keyOutline, Math.max(2, Style.space(2)))
-                          radius: Math.max(Style.cornerRadius, Style.space(8))
-
-                          Text {
-                            id: keyLabel
-                            anchors.centerIn: parent
-                            text: String(modelData || "").toUpperCase()
-                            color: Color.foreground
-                            font.family: Style.font.family
-                            font.pixelSize: root.keyFontSize
-                            font.weight: Font.Medium
-                            font.letterSpacing: Style.space(1)
-                          }
-                        }
-                      }
-                    }
-                  }
-
-                  Text {
-                    id: descriptionLabel
-                    readonly property real availableWidth: Math.max(0,
-                      screenHost.width - keyRow.implicitWidth - contentRow.spacing
-                      - root.pillHorizontalPadding - root.pillScreenGutter * 2)
-                    visible: hintPill.rowDescription !== "" && availableWidth > 0
-                    width: hintPill.rowDescription === "" ? 0 : Math.min(implicitWidth, availableWidth)
-                    text: hintPill.rowDescription
-                    color: Color.foreground
-                    font.family: Style.font.family
-                    font.pixelSize: root.keyFontSize * 0.8
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
-                    verticalAlignment: Text.AlignVCenter
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
                 }
               }
             }
