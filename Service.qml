@@ -29,6 +29,7 @@ Item {
   property string pillSize: "medium"
   property string stackGap: "default"
   property int historyCount: 2
+  property string stackDirection: "normal"
   property int historyDurationSeconds: 3
   property string historyTransparency: "balanced"
   property int guideDelayMs: 0
@@ -477,6 +478,7 @@ Item {
         pillSize: pillSize,
         stackGap: stackGap,
         historyCount: historyCount,
+        stackDirection: stackDirection,
         historyDurationSeconds: historyDurationSeconds,
         historyTransparency: historyTransparency
       },
@@ -502,6 +504,7 @@ Item {
     pillSize = next.display.pillSize
     stackGap = next.display.stackGap
     historyCount = next.display.historyCount
+    stackDirection = next.display.stackDirection
     historyDurationSeconds = next.display.historyDurationSeconds
     historyTransparency = next.display.historyTransparency
     guideDelayMs = next.guide.delayMs
@@ -579,6 +582,7 @@ Item {
     else if (propertyName === "pillSize") next.display.pillSize = value
     else if (propertyName === "stackGap") next.display.stackGap = value
     else if (propertyName === "historyCount") next.display.historyCount = value
+    else if (propertyName === "stackDirection") next.display.stackDirection = value
     else if (propertyName === "historyDurationSeconds") next.display.historyDurationSeconds = value
     else if (propertyName === "historyTransparency") next.display.historyTransparency = value
     else return false

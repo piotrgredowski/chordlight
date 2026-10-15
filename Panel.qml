@@ -23,6 +23,7 @@ Panel {
   readonly property int previewSizePercent: Math.round(GuideModel.pillSizeFactor(service ? service.pillSize : "medium") * 100)
   readonly property int previewStackSpacing: GuideModel.stackGapUnits(service ? service.stackGap : "default")
   readonly property int previewHistoryCount: service ? Number(service.historyCount) : 2
+  readonly property string previewStackDirection: service ? String(service.stackDirection || "normal") : "normal"
   readonly property int previewHistoryDurationSeconds: service ? Number(service.historyDurationSeconds) : 3
   readonly property string previewHistoryTransparency: service ? String(service.historyTransparency || "balanced") : "balanced"
 
@@ -184,9 +185,10 @@ Panel {
       historyRows.push({ combo: "SUPER + LEFT", description: "Left", scale: GuideModel.historyScale(1), opacity: previewHistoryOpacity(1) })
     if (previewHistoryCount > 0)
       historyRows.push({ combo: "SUPER + RIGHT", description: "Right", scale: GuideModel.historyScale(0), opacity: previewHistoryOpacity(0) })
-
     var currentRow = { combo: "SUPER + K", description: "Launch", scale: 1.0, opacity: 1.0 }
-    if (previewPosition.indexOf("top-") === 0) {
+    var currentAtTop = (previewPosition.indexOf("top-") === 0)
+      !== (previewStackDirection === "inverted")
+    if (currentAtTop) {
       rows.push(currentRow)
       for (var historyIndex = historyRows.length - 1; historyIndex >= 0; historyIndex--)
         rows.push(historyRows[historyIndex])
@@ -515,7 +517,7 @@ Panel {
       visible: !root.onboarding
       anchors.fill: parent
       anchors.margins: Style.spacing.popupPadding
-      spacing: Style.space(16)
+      spacing: Style.space(12)
 
       Row {
         id: enabledHeader
@@ -598,7 +600,7 @@ Panel {
         width: parent.width
         height: Math.max(0, parent.height - enabledHeader.implicitHeight
           - enabledLayout.spacing)
-        readonly property bool wideLayout: width >= Style.space(820)
+        readonly property bool wideLayout: width >= Style.space(760)
         readonly property real columnGap: Style.space(22)
 
         Item {
@@ -616,7 +618,7 @@ Panel {
           Column {
             id: previewPaneContent
             anchors.fill: parent
-            spacing: Style.space(8)
+            spacing: Style.space(10)
 
             Column {
               id: previewHeading
@@ -926,25 +928,26 @@ Panel {
 
             PanelSeparator { width: parent.width; strength: 0.08 }
 
-            Row {
+            Column {
               width: parent.width
-              spacing: Style.space(8)
+              spacing: Style.space(6)
               Text {
-                width: Style.space(88)
                 text: "DESCRIPTION"
                 color: Color.foreground
                 opacity: 0.70
                 font.pixelSize: Style.font.caption
                 font.bold: true
-                anchors.verticalCenter: parent.verticalCenter
               }
-              Flow {
-                width: parent.width - Style.space(96)
+              Grid {
+                id: descriptionChoices
+                width: parent.width
+                columns: 3
                 spacing: Style.space(4)
                 Repeater {
                   model: ["Inline", "Below", "Hidden"]
                   Button {
                     required property string modelData
+                    width: (descriptionChoices.width - Style.space(8)) / 3
                     text: modelData
                     selected: root.previewDescriptionMode === modelData.toLowerCase()
                     onClicked: root.updateDisplaySetting("descriptionMode", modelData.toLowerCase())
@@ -957,19 +960,14 @@ Panel {
 
             Column {
               width: parent.width
-              spacing: Style.space(4)
+              spacing: Style.space(6)
 
-              Item {
-                width: parent.width
-                implicitHeight: sizeLabel.implicitHeight
-                Text {
-                  id: sizeLabel
-                  text: "PILL SIZE"
-                  color: Color.foreground
-                  opacity: 0.70
-                  font.pixelSize: Style.font.caption
-                  font.bold: true
-                }
+              Text {
+                text: "PILL SIZE"
+                color: Color.foreground
+                opacity: 0.70
+                font.pixelSize: Style.font.caption
+                font.bold: true
               }
               Grid {
                 id: sizeChoices
@@ -990,39 +988,142 @@ Panel {
               }
             }
 
+            PanelSeparator { width: parent.width; strength: 0.08 }
+
             Column {
               width: parent.width
-              spacing: Style.space(4)
+              spacing: Style.space(6)
 
-              Item {
+              Text {
+                text: "STACK"
+                color: Color.foreground
+                opacity: 0.84
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              Text {
                 width: parent.width
-                implicitHeight: gapLabel.implicitHeight
+                text: "Adjust the spacing and order of stacked hints."
+                color: Color.foreground
+                opacity: 0.68
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+              }
+
+              Column {
+                width: parent.width
+                spacing: Style.space(6)
                 Text {
-                  id: gapLabel
                   text: "STACK GAP"
                   color: Color.foreground
                   opacity: 0.70
                   font.pixelSize: Style.font.caption
                   font.bold: true
                 }
+                Grid {
+                  id: gapChoices
+                  width: parent.width
+                  columns: 3
+                  spacing: Style.space(4)
+                  Repeater {
+                    model: [
+                      { label: "Tight", value: "tight" },
+                      { label: "Default", value: "default" },
+                      { label: "Loose", value: "loose" }
+                    ]
+                    Button {
+                      required property var modelData
+                      width: (gapChoices.width - Style.space(8)) / 3
+                      text: modelData.label
+                      selected: root.service && root.service.stackGap === modelData.value
+                      onClicked: root.updateDisplaySetting("stackGap", modelData.value)
+                    }
+                  }
+                }
+              }
+
+              Column {
+                width: parent.width
+                spacing: Style.space(6)
+                Text {
+                  text: "STACK DIRECTION"
+                  color: Color.foreground
+                  opacity: 0.70
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                }
+                Text {
+                  width: parent.width
+                  text: "Normal keeps the current chord at the screen edge. Inverted moves it inward, with history toward the edge."
+                  color: Color.foreground
+                  opacity: 0.68
+                  font.pixelSize: Style.font.caption
+                  wrapMode: Text.WordWrap
+                }
+                Grid {
+                  id: stackDirectionChoices
+                  width: parent.width
+                  columns: 2
+                  spacing: Style.space(4)
+                  Repeater {
+                    model: [
+                      { label: "Normal", value: "normal" },
+                      { label: "Inverted", value: "inverted" }
+                    ]
+                    Button {
+                      required property var modelData
+                      width: (stackDirectionChoices.width - Style.space(4)) / 2
+                      text: modelData.label
+                      selected: root.previewStackDirection === modelData.value
+                      onClicked: root.updateDisplaySetting("stackDirection", modelData.value)
+                    }
+                  }
+                }
+              }
+            }
+
+            PanelSeparator { width: parent.width; strength: 0.08 }
+
+            Text {
+              width: parent.width
+              text: "HISTORY"
+              color: Color.foreground
+              opacity: 0.84
+              font.pixelSize: Style.font.caption
+              font.bold: true
+            }
+            Text {
+              width: parent.width
+              text: "Choose how previous chords remain visible after release."
+              color: Color.foreground
+              opacity: 0.68
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
+            Column {
+              width: parent.width
+              spacing: Style.space(6)
+              Text {
+                text: "HISTORY COUNT"
+                color: Color.foreground
+                opacity: 0.70
+                font.pixelSize: Style.font.caption
+                font.bold: true
               }
               Grid {
-                id: gapChoices
+                id: historyCountChoices
                 width: parent.width
                 columns: 3
                 spacing: Style.space(4)
                 Repeater {
-                  model: [
-                    { label: "Tight", value: "tight" },
-                    { label: "Default", value: "default" },
-                    { label: "Loose", value: "loose" }
-                  ]
+                  model: [0, 1, 2]
                   Button {
-                    required property var modelData
-                    width: (gapChoices.width - Style.space(8)) / 3
-                    text: modelData.label
-                    selected: root.service && root.service.stackGap === modelData.value
-                    onClicked: root.updateDisplaySetting("stackGap", modelData.value)
+                    required property int modelData
+                    width: (historyCountChoices.width - Style.space(8)) / 3
+                    text: modelData === 0 ? "Off" : String(modelData)
+                    selected: root.previewHistoryCount === modelData
+                    onClicked: root.updateDisplaySetting("historyCount", modelData)
                   }
                 }
               }
@@ -1030,10 +1131,8 @@ Panel {
 
             Column {
               width: parent.width
-              spacing: Style.space(4)
-
+              spacing: Style.space(6)
               Text {
-                width: parent.width
                 text: "HISTORY TRANSPARENCY"
                 color: Color.foreground
                 opacity: 0.70
@@ -1042,7 +1141,7 @@ Panel {
               }
               Text {
                 width: parent.width
-                text: "How strongly older chords fade into the background."
+                text: "Older chords fade toward the background."
                 color: Color.foreground
                 opacity: 0.68
                 font.pixelSize: Style.font.caption
@@ -1070,67 +1169,41 @@ Panel {
               }
             }
 
-            PanelSeparator { width: parent.width; strength: 0.08 }
-
-            Row {
+            Column {
               width: parent.width
-              spacing: Style.space(8)
+              spacing: Style.space(6)
               Text {
-                width: Style.space(88)
-                text: "HISTORY"
+                text: "HISTORY DURATION"
                 color: Color.foreground
                 opacity: 0.70
                 font.pixelSize: Style.font.caption
                 font.bold: true
-                anchors.verticalCenter: parent.verticalCenter
               }
-              Flow {
-                width: parent.width - Style.space(96)
+              Text {
+                width: parent.width
+                text: "How long a released chord stays in history."
+                color: Color.foreground
+                opacity: 0.68
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+              }
+              Grid {
+                id: durationChoices
+                width: parent.width
+                columns: 5
                 spacing: Style.space(4)
                 Repeater {
-                  model: [0, 1, 2]
+                  model: [1, 2, 3, 5, 10]
                   Button {
                     required property int modelData
-                    text: modelData === 0 ? "Off" : String(modelData)
-                    selected: root.previewHistoryCount === modelData
-                    onClicked: root.updateDisplaySetting("historyCount", modelData)
+                    width: (durationChoices.width - Style.space(16)) / 5
+                    text: modelData + " sec"
+                    selected: root.previewHistoryDurationSeconds === modelData
+                    onClicked: root.updateDisplaySetting("historyDurationSeconds", modelData)
                   }
                 }
               }
             }
-
-            Text {
-              width: parent.width
-              text: "HISTORY DURATION"
-              color: Color.foreground
-              opacity: 0.70
-              font.pixelSize: Style.font.caption
-              font.bold: true
-            }
-            Text {
-              width: parent.width
-              text: "How long each new chord stays in history after release. Existing chords keep their current countdown."
-              color: Color.foreground
-              opacity: 0.78
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
-            Flow {
-              width: parent.width
-              spacing: Style.space(4)
-              Repeater {
-                model: [1, 2, 3, 5, 10]
-                Button {
-                  required property int modelData
-                  text: modelData + " sec"
-                  selected: root.previewHistoryDurationSeconds === modelData
-                  onClicked: root.updateDisplaySetting("historyDurationSeconds", modelData)
-                }
-              }
-            }
-
-
-
           }
         }
       }

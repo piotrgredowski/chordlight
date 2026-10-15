@@ -37,6 +37,7 @@ Item {
     + (maximumHintRows - 1) * hintRowSpacing
   readonly property string displayPosition: service ? String(service.displayPosition || "bottom-center") : "bottom-center"
   readonly property string displayDescriptionMode: service ? String(service.descriptionMode || "inline") : "inline"
+  readonly property string displayStackDirection: service ? String(service.stackDirection || "normal") : "normal"
   readonly property bool displayAtTop: displayPosition.indexOf("top-") === 0
   readonly property string currentMask: service && String(service.activeModifiers || "") !== ""
     ? String(service.activeModifiers)
@@ -90,6 +91,17 @@ Item {
     var rows = Array.isArray(hintRows) ? hintRows : []
     var visibleCount = Math.min(rows.length, maximumHintRows)
     var firstRow = rows.length - visibleCount
+    var currentRowIndex = -1
+    for (var currentIndex = firstRow; currentIndex < rows.length; currentIndex++) {
+      if (String(rows[currentIndex].phase || "") === "current") {
+        currentRowIndex = currentIndex
+        break
+      }
+    }
+    var hasCurrentRow = currentRowIndex >= 0
+    var historyRowCount = visibleCount - (hasCurrentRow ? 1 : 0)
+    var inverted = displayStackDirection === "inverted"
+    var currentAtTop = displayAtTop !== inverted
     var desiredIds = ({})
     for (var desiredIndex = firstRow; desiredIndex < rows.length; desiredIndex++) {
       var desiredId = String(rows[desiredIndex].visualId || rows[desiredIndex].key || "")
@@ -107,13 +119,28 @@ Item {
       var visualId = String(row.visualId || row.key || "")
       if (visualId === "") continue
       var modelIndex = hintPresentationIndex(visualId)
-      var stackRowIndex = rowIndex - firstRow
-      var isCurrentRow = String(row.phase || "") === "current"
-      var targetY = displayAtTop
-        ? (isCurrentRow ? 0 : visibleCount - 1 - stackRowIndex)
-          * (hintPillHeight + hintRowSpacing)
-        : maximumHintStackHeight - hintPillHeight
-          - (visibleCount - 1 - stackRowIndex) * (hintPillHeight + hintRowSpacing)
+      var isCurrentRow = rowIndex === currentRowIndex
+      var historyIndex = rowIndex - firstRow
+      var newestDistanceFromCurrent = historyRowCount - 1 - historyIndex
+      var slotIndex
+      if (isCurrentRow) {
+        slotIndex = currentAtTop ? 0 : maximumHintRows - 1
+      } else if (hasCurrentRow) {
+        slotIndex = currentAtTop
+          ? 1 + newestDistanceFromCurrent
+          : maximumHintRows - 2 - newestDistanceFromCurrent
+      } else if (inverted) {
+        // Keep the current-side slot reserved while history remains, so a
+        // new current row does not push the history stack back and forth.
+        slotIndex = currentAtTop
+          ? 1 + newestDistanceFromCurrent
+          : maximumHintRows - 2 - newestDistanceFromCurrent
+      } else if (displayAtTop) {
+        slotIndex = historyRowCount - 1 - historyIndex
+      } else {
+        slotIndex = maximumHintRows - historyRowCount + historyIndex
+      }
+      var targetY = slotIndex * (hintPillHeight + hintRowSpacing)
       var values = {
         visualId: visualId,
         rowCombo: String(row.combo || ""),
@@ -139,6 +166,9 @@ Item {
 
   onHintRowsChanged: syncHintPresentation()
   onEligibleChanged: syncHintPresentation()
+  onDisplayAtTopChanged: syncHintPresentation()
+  onDisplayStackDirectionChanged: syncHintPresentation()
+  onMaximumHintRowsChanged: syncHintPresentation()
 
   ChordHintPill {
     id: pillHeightSample

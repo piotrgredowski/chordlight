@@ -172,6 +172,7 @@ function defaultSettings() {
       pillSize: "medium",
       stackGap: "default",
       historyCount: 2,
+      stackDirection: "normal",
       historyDurationSeconds: 3,
       historyTransparency: "balanced"
     },
@@ -195,6 +196,7 @@ function normalizeSettings(raw) {
   var descriptions = ["inline", "below", "hidden"]
   var sizes = ["small", "medium", "large"]
   var gaps = ["tight", "default", "loose"]
+  var stackDirections = ["normal", "inverted"]
   var transparencies = ["faded", "balanced", "clear"]
   var duration = Number(display.historyDurationSeconds)
   var count = Number(display.historyCount)
@@ -208,6 +210,8 @@ function normalizeSettings(raw) {
       stackGap: gaps.indexOf(display.stackGap) !== -1 ? display.stackGap : defaults.display.stackGap,
       historyCount: isFinite(count) && Math.floor(count) === count && count >= 0 && count <= 2
         ? count : defaults.display.historyCount,
+      stackDirection: stackDirections.indexOf(display.stackDirection) !== -1
+        ? display.stackDirection : defaults.display.stackDirection,
       historyDurationSeconds: [1, 2, 3, 5, 10].indexOf(duration) !== -1
         ? duration : defaults.display.historyDurationSeconds,
       historyTransparency: transparencies.indexOf(display.historyTransparency) !== -1
@@ -292,7 +296,7 @@ function parseTomlScalar(value, type) {
 function settingTomlType(section, key) {
   if (section === "" && key === "schema_version") return "integer"
   if (section === "display") {
-    if (["position", "description_mode", "pill_size", "stack_gap", "history_transparency"].indexOf(key) !== -1)
+    if (["position", "description_mode", "pill_size", "stack_gap", "stack_direction", "history_transparency"].indexOf(key) !== -1)
       return "string"
     if (key === "history_count" || key === "history_duration_seconds") return "integer"
   }
@@ -338,6 +342,7 @@ function parseSettingsToml(text) {
   var validDescription = ["inline", "below", "hidden"]
   var validSize = ["small", "medium", "large"]
   var validGap = ["tight", "default", "loose"]
+  var validStackDirection = ["normal", "inverted"]
   var validTransparency = ["faded", "balanced", "clear"]
   if (display.position !== undefined && validPosition.indexOf(display.position) === -1)
     return { ok: false, error: "invalid-value-for-display.position" }
@@ -347,6 +352,8 @@ function parseSettingsToml(text) {
     return { ok: false, error: "invalid-value-for-display.pill_size" }
   if (display.stack_gap !== undefined && validGap.indexOf(display.stack_gap) === -1)
     return { ok: false, error: "invalid-value-for-display.stack_gap" }
+  if (display.stack_direction !== undefined && validStackDirection.indexOf(display.stack_direction) === -1)
+    return { ok: false, error: "invalid-value-for-display.stack_direction" }
   if (display.history_count !== undefined
       && (display.history_count < 0 || display.history_count > 2))
     return { ok: false, error: "invalid-value-for-display.history_count" }
@@ -367,6 +374,7 @@ function parseSettingsToml(text) {
         pillSize: display.pill_size,
         stackGap: display.stack_gap,
         historyCount: display.history_count,
+        stackDirection: display.stack_direction,
         historyDurationSeconds: display.history_duration_seconds,
         historyTransparency: display.history_transparency
       },
@@ -394,6 +402,7 @@ function serializeSettingsToml(raw) {
     "pill_size = " + JSON.stringify(d.pillSize),
     "stack_gap = " + JSON.stringify(d.stackGap),
     "history_count = " + d.historyCount,
+    "stack_direction = " + JSON.stringify(d.stackDirection),
     "history_duration_seconds = " + d.historyDurationSeconds,
     "history_transparency = " + JSON.stringify(d.historyTransparency),
     "",

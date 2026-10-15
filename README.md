@@ -42,16 +42,19 @@ when it prefixes a registered shortcut. While a matching shortcut key is held,
 the bottom hint shows its complete chord, such as `SUPER + SPACE`. After
 release, the chord and its registered description remain in a short visual
 history for up to 3 seconds. The guide shows the selected number of completed
-chords above the current chord or matching modifier prefix, with each history
-entry expiring independently. By default it keeps two completed chords, ordered
-oldest at the top and newest at the bottom. Unmatched keys are not shown.
+chords alongside the current chord or matching modifier prefix, with each
+history entry expiring independently. By default it keeps two completed chords,
+with the current chord anchored at the selected screen edge. **Normal** keeps
+history extending inward from that edge; **Inverted** places the current chord
+at the far side of the stack and lets history extend toward the edge. Unmatched
+keys are not shown.
 
 The panel preview reflects the live guide and lets you choose its screen
 position, description placement, pill size, stack spacing, history count,
-history duration, and how strongly older chords fade. A duration change applies
-to chords completed afterward; chords already in history keep their current
-countdown. Setting history to **Off** clears completed chords while leaving a
-held chord visible.
+stack direction, history duration, and how strongly older chords fade. A
+duration change applies to chords completed afterward; chords already in
+history keep their current countdown. Setting history to **Off** clears
+completed chords while leaving a held chord visible.
 
 ## Settings file
 
@@ -79,6 +82,7 @@ description_mode = "inline"         # inline, below, hidden
 pill_size = "medium"                # small, medium, large
 stack_gap = "default"               # tight, default, loose
 history_count = 2                   # 0, 1, or 2
+stack_direction = "normal"         # normal, inverted
 history_duration_seconds = 3        # 1, 2, 3, 5, or 10
 history_transparency = "balanced"  # faded, balanced, clear
 
