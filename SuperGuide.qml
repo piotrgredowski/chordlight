@@ -108,8 +108,10 @@ Item {
       if (visualId === "") continue
       var modelIndex = hintPresentationIndex(visualId)
       var stackRowIndex = rowIndex - firstRow
+      var isCurrentRow = String(row.phase || "") === "current"
       var targetY = displayAtTop
-        ? stackRowIndex * (hintPillHeight + hintRowSpacing)
+        ? (isCurrentRow ? 0 : visibleCount - 1 - stackRowIndex)
+          * (hintPillHeight + hintRowSpacing)
         : maximumHintStackHeight - hintPillHeight
           - (visibleCount - 1 - stackRowIndex) * (hintPillHeight + hintRowSpacing)
       var values = {

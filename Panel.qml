@@ -179,11 +179,21 @@ Panel {
 
   function previewRows() {
     var rows = []
+    var historyRows = []
     if (previewHistoryCount > 1)
-      rows.push({ combo: "SUPER + LEFT", description: "Left", scale: GuideModel.historyScale(1), opacity: previewHistoryOpacity(1) })
+      historyRows.push({ combo: "SUPER + LEFT", description: "Left", scale: GuideModel.historyScale(1), opacity: previewHistoryOpacity(1) })
     if (previewHistoryCount > 0)
-      rows.push({ combo: "SUPER + RIGHT", description: "Right", scale: GuideModel.historyScale(0), opacity: previewHistoryOpacity(0) })
-    rows.push({ combo: "SUPER + K", description: "Launch", scale: 1.0, opacity: 1.0 })
+      historyRows.push({ combo: "SUPER + RIGHT", description: "Right", scale: GuideModel.historyScale(0), opacity: previewHistoryOpacity(0) })
+
+    var currentRow = { combo: "SUPER + K", description: "Launch", scale: 1.0, opacity: 1.0 }
+    if (previewPosition.indexOf("top-") === 0) {
+      rows.push(currentRow)
+      for (var historyIndex = historyRows.length - 1; historyIndex >= 0; historyIndex--)
+        rows.push(historyRows[historyIndex])
+    } else {
+      rows = historyRows
+      rows.push(currentRow)
+    }
     return rows
   }
 
