@@ -158,7 +158,7 @@ TestCase {
     compare(defaults.display.position, "bottom-center")
     compare(defaults.display.descriptionMode, "inline")
     compare(defaults.display.pillSize, "medium")
-    compare(defaults.display.stackGap, "default")
+    compare(defaults.display.stackGap, "tight")
     compare(defaults.display.historyCount, 2)
     compare(defaults.display.historyDurationSeconds, 3)
     compare(defaults.display.historyTransparency, "balanced")

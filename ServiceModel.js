@@ -170,7 +170,7 @@ function defaultSettings() {
       position: "bottom-center",
       descriptionMode: "inline",
       pillSize: "medium",
-      stackGap: "default",
+      stackGap: "tight",
       historyCount: 2,
       stackDirection: "normal",
       historyDurationSeconds: 3,

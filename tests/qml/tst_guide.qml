@@ -193,9 +193,9 @@ TestCase {
     compare(GuideModel.pillSizeFactor("small"), 0.8)
     compare(GuideModel.pillSizeFactor("medium"), 1)
     compare(GuideModel.pillSizeFactor("large"), 1.2)
-    compare(GuideModel.stackGapUnits("tight"), 0)
-    compare(GuideModel.stackGapUnits("default"), 8)
-    compare(GuideModel.stackGapUnits("loose"), 16)
+    compare(GuideModel.stackGapUnits("tight"), 8)
+    compare(GuideModel.stackGapUnits("default"), 16)
+    compare(GuideModel.stackGapUnits("loose"), 24)
   }
 
   function test_suppressionAndDelayModes() {

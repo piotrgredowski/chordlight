@@ -29,9 +29,37 @@ function pillSizeFactor(size) {
 }
 
 function stackGapUnits(gap) {
-  if (gap === "tight") return 0
-  if (gap === "loose") return 16
-  return 8
+  if (gap === "tight") return 8
+  if (gap === "loose") return 24
+  return 16
+}
+
+function stackRowOffsets(scales, baseHeight, gap, anchorAtTop) {
+  var rows = Array.isArray(scales) ? scales : []
+  var height = Math.max(0, Number(baseHeight) || 0)
+  var spacing = Math.max(0, Number(gap) || 0)
+  var offsets = new Array(rows.length)
+
+  if (anchorAtTop) {
+    var top = 0
+    for (var topIndex = 0; topIndex < rows.length; topIndex++) {
+      var topScale = Number(rows[topIndex])
+      if (!isFinite(topScale) || topScale < 0) topScale = 1
+      offsets[topIndex] = top - (1 - topScale) * height / 2
+      top += topScale * height + spacing
+    }
+    return offsets
+  }
+
+  var bottom = rows.length * height + Math.max(0, rows.length - 1) * spacing
+  for (var bottomIndex = rows.length - 1; bottomIndex >= 0; bottomIndex--) {
+    var bottomScale = Number(rows[bottomIndex])
+    if (!isFinite(bottomScale) || bottomScale < 0) bottomScale = 1
+    var rowTop = bottom - bottomScale * height
+    offsets[bottomIndex] = rowTop - (1 - bottomScale) * height / 2
+    bottom = rowTop - spacing
+  }
+  return offsets
 }
 
 function historyOpacity(transparency, age) {

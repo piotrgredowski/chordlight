@@ -27,7 +27,7 @@ Item {
   property string displayPosition: "bottom-center"
   property string descriptionMode: "inline"
   property string pillSize: "medium"
-  property string stackGap: "default"
+  property string stackGap: "tight"
   property int historyCount: 2
   property string stackDirection: "normal"
   property int historyDurationSeconds: 3

@@ -21,7 +21,8 @@ Panel {
   readonly property string previewPosition: service ? String(service.displayPosition || "bottom-center") : "bottom-center"
   readonly property string previewDescriptionMode: service ? String(service.descriptionMode || "inline") : "inline"
   readonly property int previewSizePercent: Math.round(GuideModel.pillSizeFactor(service ? service.pillSize : "medium") * 100)
-  readonly property int previewStackSpacing: GuideModel.stackGapUnits(service ? service.stackGap : "default")
+  readonly property int previewStackSpacing: GuideModel.stackGapUnits(service ? service.stackGap : "tight")
+  readonly property real previewPillHeight: previewPillHeightSample.implicitHeight
   readonly property int previewHistoryCount: service ? Number(service.historyCount) : 2
   readonly property string previewStackDirection: service ? String(service.stackDirection || "normal") : "normal"
   readonly property int previewHistoryDurationSeconds: service ? Number(service.historyDurationSeconds) : 3
@@ -196,6 +197,17 @@ Panel {
       rows = historyRows
       rows.push(currentRow)
     }
+
+    var scales = []
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
+      scales.push(Number(rows[rowIndex].scale))
+    var offsets = GuideModel.stackRowOffsets(
+      scales,
+      previewPillHeight,
+      Style.space(previewStackSpacing),
+      previewPosition.indexOf("top-") === 0)
+    for (var offsetIndex = 0; offsetIndex < rows.length; offsetIndex++)
+      rows[offsetIndex].targetY = offsets[offsetIndex]
     return rows
   }
 
@@ -207,6 +219,15 @@ Panel {
     repeat: true
     running: root.service === null
     onTriggered: root.syncService()
+  }
+
+  ChordHintPill {
+    id: previewPillHeightSample
+    visible: false
+    combo: "SUPER + SHIFT + K"
+    description: "Preview shortcut"
+    descriptionMode: root.previewDescriptionMode
+    sizeFactor: root.previewScale()
   }
 
   Connections {
@@ -749,22 +770,23 @@ Panel {
                   }
                 }
 
-                Column {
+                Item {
                   id: previewStack
+                  readonly property var rows: root.previewRows()
                   width: Math.max(0, previewCanvas.width - Style.space(48))
-                  height: implicitHeight
+                  height: rows.length * root.previewPillHeight
+                    + Math.max(0, rows.length - 1) * Style.space(root.previewStackSpacing)
                   x: root.previewPosition.endsWith("-left") ? Style.space(24)
                     : root.previewPosition.endsWith("-right")
                       ? previewCanvas.width - width - Style.space(24)
                       : (previewCanvas.width - width) / 2
                   y: root.previewPosition.indexOf("top-") === 0
                     ? Style.space(18) : previewCanvas.height - height - Style.space(18)
-                  spacing: Style.space(root.previewStackSpacing)
                   z: 1
 
                   Repeater {
                     id: previewRepeater
-                    model: root.previewRows()
+                    model: previewStack.rows
 
                     delegate: Item {
                       id: previewRow
@@ -773,9 +795,8 @@ Panel {
                       readonly property real rowScale: Number(modelData.scale)
 
                       width: previewStack.width
-                      // Keep the full-size slot used by the live stack. The pill
-                      // shrinks inside it, so the preview shows the same visible gap.
                       height: previewPill.implicitHeight
+                      y: Number(modelData.targetY || 0)
 
                       ChordHintPill {
                         id: previewPill

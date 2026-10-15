@@ -29,7 +29,7 @@ Item {
   readonly property int keyFontSize: Math.max(26, Style.font.displayLarge * 0.95) * pillSizeFactor
   readonly property int pillScreenGutter: Style.space(24)
   readonly property int maximumHintRows: Math.max(1, Math.min(2, Number(service ? service.historyCount : 2)) + 1)
-  readonly property int hintRowSpacing: Style.space(GuideModel.stackGapUnits(service ? service.stackGap : "default"))
+  readonly property int hintRowSpacing: Style.space(GuideModel.stackGapUnits(service ? service.stackGap : "tight"))
   readonly property int hintFadeDurationMs: 180
   readonly property int hintMoveDurationMs: 180
   readonly property real hintPillHeight: pillHeightSample.implicitHeight
@@ -114,6 +114,9 @@ Item {
       hintPresentationModel.setProperty(existingIndex, "exiting", true)
     }
 
+    var slotScales = []
+    for (var slot = 0; slot < maximumHintRows; slot++) slotScales.push(1)
+    var placements = []
     for (var rowIndex = firstRow; rowIndex < rows.length; rowIndex++) {
       var row = rows[rowIndex]
       var visualId = String(row.visualId || row.key || "")
@@ -140,27 +143,37 @@ Item {
       } else {
         slotIndex = maximumHintRows - historyRowCount + historyIndex
       }
-      var targetY = slotIndex * (hintPillHeight + hintRowSpacing)
+      var targetScale = Math.max(0.1, Number(row.scale === undefined ? 1 : row.scale) * pillSizeFactor)
+      slotScales[slotIndex] = targetScale
       var values = {
         visualId: visualId,
         rowCombo: String(row.combo || ""),
         rowDescription: String(row.description || ""),
         phase: String(row.phase || (row.active === true ? "current" : "history")),
-        targetY: targetY,
+        targetY: 0,
         targetOpacity: Math.max(0, Math.min(1, Number(row.opacity === undefined ? 1 : row.opacity))),
-        targetScale: Math.max(0.1, Number(row.scale === undefined ? 1 : row.scale) * pillSizeFactor),
+        targetScale: targetScale,
         exiting: false
       }
+      placements.push({ modelIndex: modelIndex, slotIndex: slotIndex, values: values })
+    }
 
+    var slotOffsets = GuideModel.stackRowOffsets(
+      slotScales, hintPillHeight, hintRowSpacing, displayAtTop)
+    for (var placementIndex = 0; placementIndex < placements.length; placementIndex++) {
+      var placement = placements[placementIndex]
+      var placementValues = placement.values
+      placementValues.targetY = slotOffsets[placement.slotIndex]
+      var modelIndex = placement.modelIndex
       if (modelIndex < 0) {
-        hintPresentationModel.append(values)
+        hintPresentationModel.append(placementValues)
         continue
       }
 
       if (hintPresentationModel.get(modelIndex).exiting === true)
         hintPresentationModel.setProperty(modelIndex, "exiting", false)
-      for (var role in values)
-        hintPresentationModel.setProperty(modelIndex, role, values[role])
+      for (var role in placementValues)
+        hintPresentationModel.setProperty(modelIndex, role, placementValues[role])
     }
   }
 
@@ -169,6 +182,9 @@ Item {
   onDisplayAtTopChanged: syncHintPresentation()
   onDisplayStackDirectionChanged: syncHintPresentation()
   onMaximumHintRowsChanged: syncHintPresentation()
+  onHintRowSpacingChanged: syncHintPresentation()
+  onHintPillHeightChanged: syncHintPresentation()
+  onPillSizeFactorChanged: syncHintPresentation()
 
   ChordHintPill {
     id: pillHeightSample
