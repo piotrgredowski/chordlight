@@ -156,6 +156,8 @@ Panel {
   function previewScale() {
     return previewSizePercent / 100
   }
+  readonly property int previewScreenGutter: Style.space(32)
+
   function previewPillX(position, canvasWidth, pillWidth, scale) {
     var visualWidth = pillWidth * scale
     var visualX = position.endsWith("-left") ? 0
@@ -773,15 +775,15 @@ Panel {
                 Item {
                   id: previewStack
                   readonly property var rows: root.previewRows()
-                  width: Math.max(0, previewCanvas.width - Style.space(48))
+                  width: Math.max(0, previewCanvas.width - root.previewScreenGutter * 2)
                   height: rows.length * root.previewPillHeight
                     + Math.max(0, rows.length - 1) * Style.space(root.previewStackSpacing)
-                  x: root.previewPosition.endsWith("-left") ? Style.space(24)
+                  x: root.previewPosition.endsWith("-left") ? root.previewScreenGutter
                     : root.previewPosition.endsWith("-right")
-                      ? previewCanvas.width - width - Style.space(24)
+                      ? previewCanvas.width - width - root.previewScreenGutter
                       : (previewCanvas.width - width) / 2
                   y: root.previewPosition.indexOf("top-") === 0
-                    ? Style.space(18) : previewCanvas.height - height - Style.space(18)
+                    ? root.previewScreenGutter : previewCanvas.height - height - root.previewScreenGutter
                   z: 1
 
                   Repeater {

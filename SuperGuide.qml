@@ -27,7 +27,7 @@ Item {
   readonly property int delayValue: service ? Number(service.guideDelayMs) : -1
   readonly property real pillSizeFactor: GuideModel.pillSizeFactor(service ? service.pillSize : "medium")
   readonly property int keyFontSize: Math.max(26, Style.font.displayLarge * 0.95) * pillSizeFactor
-  readonly property int pillScreenGutter: Style.space(24)
+  readonly property int pillScreenGutter: Style.space(32)
   readonly property int maximumHintRows: Math.max(1, Math.min(2, Number(service ? service.historyCount : 2)) + 1)
   readonly property int hintRowSpacing: Style.space(GuideModel.stackGapUnits(service ? service.stackGap : "tight"))
   readonly property int hintFadeDurationMs: 180
@@ -359,7 +359,7 @@ Item {
               : root.displayPosition.endsWith("-right")
                 ? parent.width - width - root.pillScreenGutter
                 : (parent.width - width) / 2
-            y: root.displayAtTop ? Style.space(18) : parent.height - height - Style.space(18)
+            y: root.displayAtTop ? root.pillScreenGutter : parent.height - height - root.pillScreenGutter
 
             Repeater {
               model: hintPresentationModel
