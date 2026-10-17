@@ -5,7 +5,7 @@
   "version": "0.1.2",
   "author": "zaremb",
   "license": "MIT",
-  "description": "A little light for every shortcut. A local-first Omarchy keyboard shortcut guide.",
+  "description": "On-screen hints for registered Hyprland shortcuts while you hold a modifier, with configurable placement, appearance, and fading chord history.",
   "kinds": ["bar-widget", "service"],
   "entryPoints": {
     "barWidget": "BarWidget.qml",

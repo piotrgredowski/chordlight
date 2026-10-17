@@ -2,19 +2,25 @@
 
 *A little light for every shortcut.*
 
-Chordlight is a local-first guide for your registered Omarchy keyboard
-shortcuts. Hold a configured modifier to see a small outlined hint for matching
-shortcuts at a configurable position on the focused monitor, without changing
-how they work.
+Chordlight shows registered Hyprland shortcuts as on-screen hints while you
+hold a configured modifier. Completed chords stay briefly in an independently
+fading history. Use the bar panel to choose where hints appear and tune their
+size, description layout, stack direction, spacing, and history.
 
-![Chordlight showing SUPER + SHIFT + S and its “Screenshot” description in an accent-outlined pill at the bottom of the screen.](assets/screenshots/chordlight.png)
+![Chordlight showing a SUPER + SHIFT + S screenshot hint at the bottom of an Omarchy desktop.](assets/screenshots/chordlight.png)
 
-*The hint appears only when a held modifier matches a registered shortcut.*
+*Chordlight mirrors registered Hyprland shortcuts and leaves their behavior unchanged.*
 
 ## Requirements
 
-Chordlight is tested with Omarchy 4.0.1, Quickshell 0.3.1, and Hyprland 0.56.2.
-It is designed for Omarchy's Lua-based Hyprland configuration.
+Chordlight runs inside Omarchy Shell with Hyprland. It was tested with Omarchy
+4.0.1, Quickshell 0.3.1, and Hyprland 0.56.2.
+
+The runtime tools are Python 3, `hyprctl` (from Hyprland), `xkbcli` (from
+libxkbcommon), and `luac` (to validate the bridge before changing the Hyprland
+configuration). Chordlight uses only the Python standard library. Git is used
+when available to identify tracked configuration files. The maintainer-only
+`make reload` target also requires `jq` and `rsync`.
 
 ## Install
 
