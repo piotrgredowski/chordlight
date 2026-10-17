@@ -1,16 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-17
 
-- Renamed the fork to Chordlight, with independent plugin, protocol, bridge,
-  IPC, layer-shell, and runtime-state identities. See `docs/BRANDING.md` for
-  the clean switch from the separate Omakeez marketplace plugin.
-- Registered shortcut descriptions now appear beside the chord after its key
-  is released, for up to 3 seconds, in text sized closer to the key labels.
-- Replaced the shortcut canopy with a compact, bottom-centered outlined chord
-  hint. It appears after the configured delay only when held modifiers match a
-  registered shortcut, and expands to a chord while its shortcut key is held.
-- Removed the unused guide top-offset setting.
+- Rebranded the Omakeez-derived project as Chordlight with independent plugin,
+  protocol, bridge, IPC, layer-shell, and runtime-state identities while
+  preserving the upstream Git history and MIT copyright notices.
+- Added a configurable, independently fading chord history with adjustable
+  history count, duration, transparency, stack spacing, and direction.
+- Added panel controls for hint position, description placement, and pill size,
+  with settings saved in the Chordlight TOML file.
+- Animated chord movement through the history stack and increased the screen
+  edge margin for the guide.
+- Added local state-transition tracing for debugging guide behavior.
+- Registered shortcut descriptions now appear beside completed chords, and
+  the active hint uses a compact outlined pill.
 
 ## 0.1.2 — 2026-09-03
 

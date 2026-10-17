@@ -7,8 +7,10 @@ runtime_files="$root/bridge.lua $root/Service.qml $root/Panel.qml $root/SuperGui
 for entry in manifest.json BarWidget.qml Panel.qml Service.qml SuperGuide.qml ChordHintPill.qml bridge.lua ServiceModel.js GuideModel.js scripts/bridge-control scripts/debug-trace scripts/generate-catalog; do
   test -f "$root/$entry"
 done
-test -s "$root/assets/screenshots/chordlight.png"
-grep -Fq 'assets/screenshots/chordlight.png' "$root/README.md"
+test -s "$root/preview.png"
+test -s "$root/assets/screenshots/settings-panel.png"
+grep -Fq 'preview.png' "$root/README.md"
+grep -Fq 'assets/screenshots/settings-panel.png' "$root/README.md"
 grep -Fq 'https://github.com/zaremb/chordlight.git' "$root/README.md"
 grep -Fq 'omarchy plugin update io.github.zaremb.chordlight' "$root/README.md"
 
@@ -16,7 +18,7 @@ jq -e '
   .schemaVersion == 1 and
   .id == "io.github.zaremb.chordlight" and
   .name == "Chordlight" and
-  .version == "0.1.2" and
+  .version == "0.2.0" and
   .author == "zaremb" and
   .license == "MIT" and
   (.kinds == ["bar-widget", "service"]) and

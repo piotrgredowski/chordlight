@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.github.zaremb.chordlight",
   "name": "Chordlight",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "author": "zaremb",
   "license": "MIT",
-  "description": "On-screen hints for registered Hyprland shortcuts while you hold a modifier, with configurable placement, appearance, and fading chord history.",
+  "description": "Show registered Hyprland shortcuts on screen as you hold a modifier, with configurable placement and a fading history of recent chords.",
   "kinds": ["bar-widget", "service"],
   "entryPoints": {
     "barWidget": "BarWidget.qml",

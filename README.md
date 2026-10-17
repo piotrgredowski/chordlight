@@ -7,9 +7,20 @@ hold a configured modifier. Completed chords stay briefly in an independently
 fading history. Use the bar panel to choose where hints appear and tune their
 size, description layout, stack direction, spacing, and history.
 
-![Chordlight showing a SUPER + SHIFT + S screenshot hint at the bottom of an Omarchy desktop.](assets/screenshots/chordlight.png)
+Chordlight was built on the Omarchy shortcut guide from
+[Omakeez](https://github.com/cyprusad/omakeez). It keeps the upstream Git
+history and MIT copyright notices, and is now maintained as a separate plugin
+with its own identity and runtime.
+
+## Screenshots
+
+![Chordlight showing the held SUPER + SHIFT + S screenshot chord and two independently fading history entries on an Omarchy desktop.](preview.png)
 
 *Chordlight mirrors registered Hyprland shortcuts and leaves their behavior unchanged.*
+
+![The Chordlight settings panel with its live guide preview and display controls.](assets/screenshots/settings-panel.png)
+
+*The bar panel previews real-size hints while you adjust their position and appearance.*
 
 ## Requirements
 
