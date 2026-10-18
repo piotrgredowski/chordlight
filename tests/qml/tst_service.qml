@@ -294,6 +294,46 @@ TestCase {
     verify(!Model.parseLockStatus("false", 1).ok)
   }
 
+  function test_debugTracingRequiresKnownUnprotectedState() {
+    var safe = {
+      debugModeEnabled: true,
+      lockStateKnown: true,
+      desktopLocked: false,
+      credentialPromptStateKnown: true,
+      credentialPromptActive: false
+    }
+    verify(Model.traceProtectionClear(safe))
+    verify(Model.debugTraceEligible(safe))
+
+    var noDebug = JSON.parse(JSON.stringify(safe))
+    noDebug.debugModeEnabled = false
+    verify(Model.traceProtectionClear(noDebug))
+    verify(!Model.debugTraceEligible(noDebug))
+
+    var unknownLock = JSON.parse(JSON.stringify(safe))
+    unknownLock.lockStateKnown = false
+    verify(!Model.traceProtectionClear(unknownLock))
+    verify(!Model.debugTraceEligible(unknownLock))
+
+    var locked = JSON.parse(JSON.stringify(safe))
+    locked.desktopLocked = true
+    verify(!Model.traceProtectionClear(locked))
+    verify(!Model.debugTraceEligible(locked))
+
+    var unknownPrompt = JSON.parse(JSON.stringify(safe))
+    unknownPrompt.credentialPromptStateKnown = false
+    verify(!Model.traceProtectionClear(unknownPrompt))
+    verify(!Model.debugTraceEligible(unknownPrompt))
+
+    var promptActive = JSON.parse(JSON.stringify(safe))
+    promptActive.credentialPromptActive = true
+    verify(!Model.traceProtectionClear(promptActive))
+    verify(!Model.debugTraceEligible(promptActive))
+
+    verify(!Model.traceProtectionClear({}))
+    verify(!Model.debugTraceEligible({ debugModeEnabled: true }))
+  }
+
   function test_layerStatusAndPolkitEvents() {
     var clear = '{"eDP-1":{"levels":{"0":[],"3":[]}},"DP-1":{"levels":{"0":[]}}}'
     var active = '{"eDP-1":{"levels":{"0":[],"3":[{"namespace":"omarchy-polkit"}]}}}'

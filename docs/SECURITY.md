@@ -94,6 +94,15 @@ the display combo plus opaque ID for matched registered shortcuts. The trace is 
 Setting it to `false` stops new records; it does not delete existing trace
 files.
 
+The trace writer accepts events only while both the desktop-lock check and the
+Polkit-layer check are known clear. It pauses while either check reports a
+protected state or has an unknown result, drops queued entries that have not
+started writing, and resumes after both checks confirm the desktop is clear.
+An append already in progress may finish with an event accepted before the
+protected state began. Updates preserve existing trace files, which may include
+protected-state events captured by older versions; remove the trace and its
+rotations manually if you want to clear them.
+
 Chordlight never persists typed text, passwords, unmatched keys, raw keycodes,
 descriptions, commands, dispatcher arguments, window titles, application
 identifiers, or telemetry. The optional trace is a guide-debug log, not a

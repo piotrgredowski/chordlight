@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-10-18
+
+- Paused debug tracing while the desktop is locked, an Omarchy Polkit prompt
+  is active, or either protection status is unknown. Existing trace files are
+  preserved.
+
 ## 0.2.0 — 2026-10-17
 
 - Rebranded the Omakeez-derived project as Chordlight with independent plugin,

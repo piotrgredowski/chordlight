@@ -18,7 +18,7 @@ jq -e '
   .schemaVersion == 1 and
   .id == "io.github.zaremb.chordlight" and
   .name == "Chordlight" and
-  .version == "0.2.0" and
+  .version == "0.2.1" and
   .author == "zaremb" and
   .license == "MIT" and
   (.kinds == ["bar-widget", "service"]) and

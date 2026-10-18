@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.zaremb.chordlight",
   "name": "Chordlight",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "zaremb",
   "license": "MIT",
   "description": "Show registered Hyprland shortcuts on screen as you hold a modifier, with configurable placement and a fading history of recent chords.",

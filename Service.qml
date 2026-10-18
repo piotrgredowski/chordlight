@@ -54,6 +54,19 @@ Item {
   property bool lockStateKnown: false
   property bool credentialPromptActive: true
   property bool credentialPromptStateKnown: false
+  readonly property bool traceProtectionClear: Model.traceProtectionClear({
+    lockStateKnown: root.lockStateKnown,
+    desktopLocked: root.desktopLocked,
+    credentialPromptStateKnown: root.credentialPromptStateKnown,
+    credentialPromptActive: root.credentialPromptActive
+  })
+  readonly property bool debugTraceEligible: Model.debugTraceEligible({
+    debugModeEnabled: root.debugModeEnabled,
+    lockStateKnown: root.lockStateKnown,
+    desktopLocked: root.desktopLocked,
+    credentialPromptStateKnown: root.credentialPromptStateKnown,
+    credentialPromptActive: root.credentialPromptActive
+  })
   property bool activeWindowFullscreen: false
   property bool lockStatusRefreshPending: false
   property bool lockStatusTimedOut: false
@@ -61,6 +74,16 @@ Item {
   property bool layerRefreshPending: false
   property int layerEventRevision: 0
   property int layerRequestRevision: 0
+
+  onTraceProtectionClearChanged: {
+    if (!traceProtectionClear) {
+      // Pending events were captured while the desktop was previously clear,
+      // but do not let them be written during a protected state.
+      debugTraceQueue = []
+      return
+    }
+    root.startNextDebugTraceWrite()
+  }
 
   property string catalogState: "loading"
   property bool catalogPublicationPending: false
@@ -160,6 +183,7 @@ Item {
   }
 
   function enqueueDebugTrace(entry) {
+    if (!debugTraceEligible) return false
     var queue = debugTraceQueue.slice()
     if (queue.length >= 512) {
       queue.shift()
@@ -172,7 +196,7 @@ Item {
   }
 
   function recordDebugTrace(kind, details) {
-    if (!debugModeEnabled) return false
+    if (!debugTraceEligible) return false
     var timestamp = Date.now()
     var entry = {
       schemaVersion: 1,
@@ -187,7 +211,7 @@ Item {
   }
 
   function startNextDebugTraceWrite() {
-    if (debugTraceWriterProcess.running || activeDebugTraceEntry !== ""
+    if (!traceProtectionClear || debugTraceWriterProcess.running || activeDebugTraceEntry !== ""
         || debugTraceQueue.length === 0 || debugTraceWriterPath === "") return false
     var queue = debugTraceQueue.slice()
     activeDebugTraceEntry = queue.shift()
@@ -204,7 +228,7 @@ Item {
   }
 
   function recordGuideTransition(event, previous, next) {
-    if (!debugModeEnabled) return
+    if (!debugTraceEligible) return
     var timestamp = Date.now()
     var input = { type: String(event && event.type || "") }
     if (event && event.reason) input.reason = String(event.reason).slice(0, 80)
@@ -224,7 +248,7 @@ Item {
   }
 
   function recordMatchedChord(parsed) {
-    if (!debugModeEnabled) return
+    if (!debugTraceEligible) return
     var timestamp = Date.now()
     enqueueDebugTrace({
       schemaVersion: 1,
@@ -238,7 +262,7 @@ Item {
   }
 
   function recordProtocolIssue(error, type, id, phase) {
-    if (!debugModeEnabled) return
+    if (!debugTraceEligible) return
     var timestamp = Date.now()
     enqueueDebugTrace({
       schemaVersion: 1,
@@ -254,6 +278,7 @@ Item {
   }
 
   function recordDebugModeChange(enabled) {
+    if (!debugTraceEligible) return false
     var timestamp = Date.now()
     enqueueDebugTrace({
       schemaVersion: 1,
@@ -263,6 +288,7 @@ Item {
       enabled: enabled === true,
       state: traceState(guideState)
     })
+    return true
   }
 
   function applyDebugModeEnabled(value) {
@@ -299,13 +325,17 @@ Item {
     lastProtocolError = ""
     if (parsed.type === "guide") {
       if (parsed.phase === "down") {
+        // A modifier can still precede matched-chord events even when its
+        // visual guide is disabled, so refresh lock status before handling
+        // either path. A previously clear result may already be stale.
+        lockStateKnown = false
+        root.requestLockStatus(true)
         if (!root.guideRootEnabled(parsed.root)) {
           root.clearGuide("disabled-guide-root-event")
           return true
         }
         pendingGuideReceivedMs = Date.now()
         root.transitionGuide({ type: "sessionStarted", root: parsed.root })
-        root.requestLockStatus(true)
       } else {
         root.endGuide()
       }
@@ -685,8 +715,8 @@ Item {
       setLockStateUnknown()
       return false
     }
-    lockStateKnown = true
     desktopLocked = parsed.locked
+    lockStateKnown = true
     if (desktopLocked) suppressGuide("desktop-locked")
     else evaluatePendingGuide()
     return true
@@ -715,13 +745,13 @@ Item {
     if (!Model.isPolkitLayerEvent(name, data)) return false
     layerEventRevision += 1
     if (name === "openlayer") {
-      credentialPromptStateKnown = true
       credentialPromptActive = true
+      credentialPromptStateKnown = true
     } else {
       // Keep the guide hidden until a fresh inventory confirms that every
       // Omarchy Polkit surface has closed, including on multi-monitor setups.
-      credentialPromptStateKnown = false
       credentialPromptActive = true
+      credentialPromptStateKnown = false
     }
     suppressGuide("polkit-layer-event:" + name)
     requestLayerStatus()
@@ -741,8 +771,8 @@ Item {
       suppressGuide("polkit-layer-query-failed")
       return false
     }
-    credentialPromptStateKnown = true
     credentialPromptActive = parsed.active
+    credentialPromptStateKnown = true
     if (credentialPromptActive) suppressGuide("polkit-prompt-active")
     else evaluatePendingGuide()
     return true

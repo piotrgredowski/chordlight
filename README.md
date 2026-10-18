@@ -139,6 +139,13 @@ guide transitions include their cause and state snapshots with phase, root,
 modifier mask, pending chords, and history sequence/deadline data. Set it to
 `false` to stop recording.
 
+Tracing pauses while the desktop is locked, an Omarchy Polkit prompt is active,
+or either protection status is unknown. Pending unwritten entries are dropped;
+recording resumes after both checks confirm the desktop is clear. Existing
+trace files are preserved across updates and may contain protected-state events
+captured by older versions. Remove `trace.jsonl` and its rotations manually if
+you want to clear them.
+
 Its fresh, independent runtime state lives here:
 
 ```text

@@ -458,6 +458,20 @@ function parseLockStatus(raw, exitCode) {
   return { ok: false, error: "invalid-lock-status" }
 }
 
+function traceProtectionClear(state) {
+  if (!isObject(state)) return false
+  return state.lockStateKnown === true
+    && state.desktopLocked === false
+    && state.credentialPromptStateKnown === true
+    && state.credentialPromptActive === false
+}
+
+function debugTraceEligible(state) {
+  return isObject(state)
+    && state.debugModeEnabled === true
+    && traceProtectionClear(state)
+}
+
 function parseLayerStatus(raw, exitCode) {
   if (exitCode !== 0) return { ok: false, error: "layer-query-failed" }
   var value = raw
